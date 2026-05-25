@@ -1,0 +1,23 @@
+ FAIL  tests/math.test.ts > math > adds numbers
+AssertionError: expected 4 to be 3 // Object.is equality
+
+- Expected
++ Received
+
+- 3
++ 4
+
+ ❯ tests/math.test.ts:7:23
+      5| describe('math', () => {
+      6|   it('adds numbers', () => {
+      7|     expect(add(2, 2)).toBe(3)
+       |                       ^
+
+ FAIL  tests/format.test.ts > format > trims whitespace
+AssertionError: expected '  hi  ' to be 'hi'
+
+ ❯ tests/format.test.ts:11:18
+      9| describe('format', () => {
+     10|   it('trims whitespace', () => {
+     11|     expect(trim('  hi  ')).toBe('hi')
+       |                  ^

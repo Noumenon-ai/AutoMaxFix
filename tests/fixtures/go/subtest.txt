@@ -1,0 +1,11 @@
+=== RUN   TestParser
+=== RUN   TestParser/missing_field
+--- FAIL: TestParser/missing_field (0.00s)
+    parser_test.go:27: expected validation error for missing field
+=== RUN   TestParser/bad_type
+--- FAIL: TestParser/bad_type (0.00s)
+    parser_test.go:35: expected type error for name
+--- FAIL: TestParser (0.00s)
+FAIL
+exit status 1
+FAIL    github.com/example/project/pkg/parser    0.005s

@@ -1,0 +1,18 @@
+.automaxfix/
+.AutoMaxFix/
+.pytest_cache/
+__pycache__/
+.venv/
+*.egg-info/
+*.pyc
+.codex/
+.agents/
+
+# Local-only artifacts (kept outside the repo)
+AMF_LAUNCH_PLAYBOOK.md
+AMF_LAUNCH_PLAYBOOK.pdf
+
+# Editor / OS noise
+.DS_Store
+.idea/
+.vscode/

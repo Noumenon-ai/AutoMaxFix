@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/workspace/runner.py", line 10, in <module>
+    main()
+src/service.py:42: AssertionError: expected cached value to refresh
+src/repository.py:88: ValueError: duplicate reminder row created
+tests/test_service.py:17: AssertionError: stale timestamp

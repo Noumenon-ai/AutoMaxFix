@@ -1,0 +1,306 @@
+name: AutoMaxFix CI Action
+description: Run AutoMaxFix against a captured failing test log inside GitHub Actions.
+
+inputs:
+  test-runner:
+    description: pytest | jest | vitest | mocha | go | cargo | generic
+    required: true
+  test-output-path:
+    description: Path to the captured failure log within the workflow workspace.
+    required: true
+  agent:
+    description: codex_cli | claude_cli | manual_patch_file
+    required: false
+    default: codex_cli
+  require-approval:
+    description: Require a human approval gate before AutoMaxFix applies the patch.
+    required: false
+    default: "true"
+  open-pr:
+    description: Whether the workflow wrapper should open a pull request instead of pushing direct.
+    required: false
+    default: "true"
+  install-target:
+    description: PyPI package name or local editable path for self-hosted installs.
+    required: false
+    default: automaxfix
+
+outputs:
+  outcome:
+    description: success | approval_required | failure
+    value: ${{ steps.execute.outputs.outcome }}
+  ticket-id:
+    description: The AutoMaxFix ticket ID selected for the CI run.
+    value: ${{ steps.execute.outputs.ticket_id }}
+  ticket-path:
+    description: The saved ticket JSON path.
+    value: ${{ steps.execute.outputs.ticket_path }}
+  report-path:
+    description: The generated report path.
+    value: ${{ steps.execute.outputs.report_path }}
+  patch-artifact-path:
+    description: The saved applied patch artifact path.
+    value: ${{ steps.execute.outputs.patch_artifact_path }}
+  patch-summary:
+    description: Patch summary or approval message extracted from the ticket.
+    value: ${{ steps.execute.outputs.patch_summary }}
+  error-message:
+    description: Error summary for failed runs.
+    value: ${{ steps.execute.outputs.error_message }}
+  run-url:
+    description: GitHub Actions run URL for traceability.
+    value: ${{ steps.execute.outputs.run_url }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install AutoMaxFix
+      shell: bash
+      run: |
+        set -euo pipefail
+        python -m pip install --upgrade pip
+        target="${{ inputs['install-target'] }}"
+        if [ -d "$target" ]; then
+          python -m pip install -e "$target"
+        else
+          python -m pip install "$target"
+        fi
+
+    - name: Build CI config overlay
+      id: prepare
+      shell: bash
+      env:
+        TEST_RUNNER: ${{ inputs['test-runner'] }}
+        AGENT: ${{ inputs.agent }}
+        REQUIRE_APPROVAL: ${{ inputs['require-approval'] }}
+      run: |
+        set -euo pipefail
+        python - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        from automaxfix.config import load_config
+
+        runner_defaults = {
+            "pytest": ("pytest -q", "pytest {test_file} -v"),
+            "jest": ("npx jest --runInBand", "npx jest {test_file} --runInBand"),
+            "vitest": ("npx vitest run", "npx vitest run {test_file}"),
+            "mocha": ("npx mocha", "npx mocha {test_file}"),
+            "go": ("go test ./...", "go test ./..."),
+            "cargo": ("cargo test", "cargo test"),
+            "generic": ("pytest -q", "pytest {test_file} -v"),
+        }
+        valid_agents = {"codex_cli", "claude_cli", "manual_patch_file"}
+
+        runner = os.environ["TEST_RUNNER"].strip()
+        agent = os.environ["AGENT"].strip()
+        require_approval = os.environ["REQUIRE_APPROVAL"].strip().lower() == "true"
+        if runner not in runner_defaults:
+            raise SystemExit(f"Unsupported test runner: {runner}")
+        if agent not in valid_agents:
+            raise SystemExit(f"Unsupported agent: {agent}")
+
+        base_dir = Path.cwd()
+        config = load_config(base_dir)
+        default_test_command, default_targeted_command = runner_defaults[runner]
+
+        if runner != "pytest" and config.test_command == "pytest -q":
+            config.test_command = default_test_command
+        if runner != "pytest" and config.targeted_test_command == "pytest {test_file} -v":
+            config.targeted_test_command = default_targeted_command
+
+        config.ci_mode = True
+        config.agent.mode = agent
+        config.approval.require_human_approval = require_approval
+
+        config_path = base_dir / ".automaxfix" / "ci.config.yml"
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+
+        def render_scalar(value):
+            if value is None:
+                return "null"
+            if isinstance(value, bool):
+                return "true" if value else "false"
+            if isinstance(value, int):
+                return str(value)
+            return json.dumps(str(value))
+
+        def render_mapping(lines, payload, indent=0):
+            prefix = " " * indent
+            for key, value in payload.items():
+                if isinstance(value, dict):
+                    lines.append(f"{prefix}{key}:")
+                    render_mapping(lines, value, indent + 2)
+                    continue
+                if isinstance(value, list):
+                    lines.append(f"{prefix}{key}:")
+                    for item in value:
+                        lines.append(f"{prefix}  - {render_scalar(item)}")
+                    continue
+                lines.append(f"{prefix}{key}: {render_scalar(value)}")
+
+        lines = []
+        render_mapping(lines, config.to_dict())
+        config_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+            print(f"config_path={config_path}", file=handle)
+        PY
+
+    - name: Execute AutoMaxFix
+      id: execute
+      shell: bash
+      env:
+        TEST_RUNNER: ${{ inputs['test-runner'] }}
+        TEST_OUTPUT_PATH: ${{ inputs['test-output-path'] }}
+        AGENT: ${{ inputs.agent }}
+        REQUIRE_APPROVAL: ${{ inputs['require-approval'] }}
+        CONFIG_PATH: ${{ steps.prepare.outputs.config_path }}
+        AUTOMAXFIX_CI_MODE: "1"
+      run: |
+        set -euo pipefail
+        python - <<'PY'
+        import json
+        import os
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        def normalize(value):
+            return " ".join(str(value).split()).strip()
+
+        def write_output(name, value):
+            with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+                print(f"{name}={normalize(value)}", file=handle)
+
+        def github_run_url():
+            server_url = os.environ.get("GITHUB_SERVER_URL", "").strip()
+            repository = os.environ.get("GITHUB_REPOSITORY", "").strip()
+            run_id = os.environ.get("GITHUB_RUN_ID", "").strip()
+            if not server_url or not repository or not run_id:
+                return ""
+            return f"{server_url}/{repository}/actions/runs/{run_id}"
+
+        def resolve_path(raw_path):
+            path = Path(raw_path)
+            if path.is_absolute():
+                return path
+            return (Path.cwd() / path).resolve()
+
+        def run_cli(arguments, *, env):
+            command = [sys.executable, "-m", "automaxfix.cli", "--config", env["CONFIG_PATH"], *arguments]
+            print("$", " ".join(command))
+            result = subprocess.run(
+                command,
+                cwd=Path.cwd(),
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.stdout:
+                print(result.stdout)
+            if result.stderr:
+                print(result.stderr, file=sys.stderr)
+            return result
+
+        def latest(path_pattern):
+            candidates = sorted(Path.cwd().glob(path_pattern), key=lambda item: item.stat().st_mtime)
+            return candidates[-1] if candidates else None
+
+        outputs = {
+            "outcome": "failure",
+            "ticket_id": "",
+            "ticket_path": "",
+            "report_path": "",
+            "patch_artifact_path": "",
+            "patch_summary": "",
+            "error_message": "",
+            "run_url": github_run_url(),
+        }
+
+        runner_to_scan_args = {
+            "pytest": ["scan", "--pytest-output"],
+            "jest": ["scan", "--jest-output"],
+            "vitest": ["scan", "--vitest-output"],
+            "mocha": ["scan", "--mocha-output"],
+            "go": ["scan", "--go-output"],
+            "cargo": ["scan", "--cargo-output"],
+            "generic": ["scan", "--from-file"],
+        }
+
+        runner = os.environ["TEST_RUNNER"].strip()
+        log_path = resolve_path(os.environ["TEST_OUTPUT_PATH"])
+        env = os.environ.copy()
+
+        if runner not in runner_to_scan_args:
+            outputs["error_message"] = f"Unsupported test runner: {runner}"
+        elif not log_path.exists():
+            outputs["error_message"] = f"Test output file not found: {log_path}"
+        else:
+            scan_args = [*runner_to_scan_args[runner], str(log_path)]
+            if runner == "generic":
+                scan_args.extend(["--format", "generic"])
+            scan_result = run_cli(scan_args, env=env)
+
+            ticket_path = latest(".automaxfix/tickets/*.json")
+            if scan_result.returncode != 0:
+                outputs["error_message"] = scan_result.stderr.strip() or scan_result.stdout.strip() or "AutoMaxFix scan failed."
+            elif ticket_path is None:
+                outputs["error_message"] = "AutoMaxFix did not create a ticket from the supplied failure log."
+            else:
+                outputs["ticket_path"] = str(ticket_path)
+                run_args = ["run", "--ticket", str(ticket_path), "--no-repro"]
+                agent = os.environ["AGENT"].strip()
+                if agent == "manual_patch_file":
+                    patch_file = os.environ.get("AUTOMAXFIX_PATCH_FILE", "").strip()
+                    if not patch_file:
+                        outputs["error_message"] = (
+                            "manual_patch_file requires AUTOMAXFIX_PATCH_FILE to point to a unified diff."
+                        )
+                    else:
+                        run_args.extend(["--patch-file", patch_file])
+                else:
+                    run_args.extend(["--agent", agent])
+
+                if not outputs["error_message"] and os.environ["REQUIRE_APPROVAL"].strip().lower() != "true":
+                    run_args.append("--yes")
+
+                if not outputs["error_message"]:
+                    run_cli(run_args, env=env)
+
+                report_path = latest(".automaxfix/reports/*.md")
+                patch_artifact_path = latest(".automaxfix/logs/applied_*.diff")
+                if report_path is not None:
+                    outputs["report_path"] = str(report_path)
+                if patch_artifact_path is not None:
+                    outputs["patch_artifact_path"] = str(patch_artifact_path)
+
+                ticket_payload = json.loads(ticket_path.read_text(encoding="utf-8"))
+                outputs["ticket_id"] = str(ticket_payload.get("id", ""))
+                outputs["patch_summary"] = str(
+                    ticket_payload.get("patch_summary") or ticket_payload.get("result") or ""
+                )
+                outputs["run_url"] = str(
+                    ticket_payload.get("github_actions_run_url") or outputs["run_url"] or ""
+                )
+
+                result_message = str(ticket_payload.get("result") or "").strip()
+                status = str(ticket_payload.get("status") or "").strip()
+                if "Human approval required" in result_message:
+                    outputs["outcome"] = "approval_required"
+                elif status == "passed":
+                    outputs["outcome"] = "success"
+                else:
+                    outputs["outcome"] = "failure"
+                    outputs["error_message"] = result_message or outputs["error_message"] or "AutoMaxFix run failed."
+
+        for name, value in outputs.items():
+            write_output(name, value)
+        PY

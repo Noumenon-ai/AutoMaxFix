@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "automaxfix"
+version = "0.3.0"
+description = "Controlled repair loop for AI-built software."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Open Source Contributors" }]
+dependencies = []
+
+[project.scripts]
+automaxfix = "automaxfix.cli:main"
+
+[tool.setuptools]
+packages = ["automaxfix", "automaxfix.scanners"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_default_fixture_loop_scope = "function"

@@ -1,0 +1,9 @@
+=== RUN   TestAdd
+--- FAIL: TestAdd (0.00s)
+    math_test.go:12: expected 3, got 4
+=== RUN   TestSub
+--- FAIL: TestSub (0.00s)
+    math_test.go:18: expected 1, got 0
+FAIL
+exit status 1
+FAIL    github.com/example/project/pkg/math    0.004s

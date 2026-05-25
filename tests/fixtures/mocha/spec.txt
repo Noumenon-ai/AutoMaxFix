@@ -1,0 +1,22 @@
+  math helpers
+    1) adds numbers
+    2) subtracts numbers
+
+  0 passing (10ms)
+  2 failing
+
+  1) math helpers
+       adds numbers:
+     AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+      4 !== 3
+
+      at Context.<anonymous> (test/math.spec.js:7:12)
+
+  2) math helpers
+       subtracts numbers:
+     AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+      0 !== 1
+
+      at Context.<anonymous> (test/math.spec.js:12:12)

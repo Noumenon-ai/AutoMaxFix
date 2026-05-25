@@ -1,0 +1,30 @@
+FAIL src/math.test.js
+  math
+    ✕ adds numbers (6 ms)
+    ✕ subtracts numbers (1 ms)
+
+  ● math › adds numbers
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 3
+    Received: 4
+
+      5 | test('adds numbers', () => {
+      6 |   expect(add(2, 2)).toBe(3);
+    > 7 | });
+        |                    ^
+      at Object.toBe (src/math.test.js:7:20)
+
+  ● math › subtracts numbers
+
+    expect(received).toEqual(expected)
+
+    Expected: 1
+    Received: 0
+
+      10 | test('subtracts numbers', () => {
+      11 |   expect(subtract(1, 1)).toEqual(1);
+    > 12 | });
+         |                           ^
+      at Object.toEqual (src/math.test.js:12:27)

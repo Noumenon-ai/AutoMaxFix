@@ -1,0 +1,6 @@
+=== RUN   TestAdd
+--- PASS: TestAdd (0.00s)
+=== RUN   TestSub
+--- PASS: TestSub (0.00s)
+PASS
+ok      github.com/example/project/pkg/math    0.003s

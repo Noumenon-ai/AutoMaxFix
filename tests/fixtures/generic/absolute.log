@@ -1,0 +1,2 @@
+ERROR /tmp/repo/src/worker.py:14: RuntimeError: background job exploded
+/tmp/repo/tests/test_worker.py:33: AssertionError: expected 2 jobs, got 3

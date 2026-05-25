@@ -1,0 +1,7 @@
+FAIL src/setup.test.js
+  ● Test suite failed to run
+
+    Cannot find module '../config' from 'src/setup.test.js'
+
+      at Resolver._throwModNotFoundError (node_modules/jest-resolve/build/resolver.js:427:11)
+      at Object.require (src/setup.test.js:1:1)

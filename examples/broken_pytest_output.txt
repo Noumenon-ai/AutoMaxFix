@@ -1,0 +1,20 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.0, pytest-8.3.0
+collected 6 items
+
+tests/test_dupes.py F....                                                [ 83%]
+tests/test_reminders.py .F                                               [100%]
+
+=================================== FAILURES ===================================
+________________ test_reminder_update_does_not_duplicate __________________
+
+E   AssertionError: expected 1 reminder row, found 2
+
+________________ test_run_report_includes_remaining_risk __________________
+
+E   AssertionError: remaining risk missing from report
+
+=========================== short test summary info ============================
+FAILED tests/test_dupes.py::test_reminder_update_does_not_duplicate - AssertionError: expected 1 reminder row, found 2
+FAILED tests/test_reminders.py::test_run_report_includes_remaining_risk - AssertionError: remaining risk missing from report
+========================= 2 failed, 4 passed in 0.31s =========================

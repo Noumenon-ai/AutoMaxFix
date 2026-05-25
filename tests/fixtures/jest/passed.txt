@@ -1,0 +1,9 @@
+PASS src/math.test.js
+  math
+    ✓ adds numbers (2 ms)
+    ✓ subtracts numbers (1 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       2 passed, 2 total
+Snapshots:   0 total
+Time:        0.531 s

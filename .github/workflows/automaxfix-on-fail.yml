@@ -1,0 +1,245 @@
+name: AutoMaxFix On Fail
+
+'on':
+  workflow_call:
+    inputs:
+      test-runner:
+        description: pytest | jest | vitest | mocha | go | cargo | generic
+        required: true
+        type: string
+      test-output-path:
+        description: Path to the captured failure log within the checked out workspace.
+        required: true
+        type: string
+      agent:
+        description: codex_cli | claude_cli | manual_patch_file
+        required: false
+        default: codex_cli
+        type: string
+      require-approval:
+        description: Require a human approval gate before the patch is applied.
+        required: false
+        default: true
+        type: boolean
+      open-pr:
+        description: Open a pull request with the patch instead of pushing direct.
+        required: false
+        default: true
+        type: boolean
+      test-output-artifact:
+        description: Optional artifact name to download before reading test-output-path.
+        required: false
+        default: ""
+        type: string
+      install-target:
+        description: PyPI package name or local editable path for self-hosted installs.
+        required: false
+        default: automaxfix
+        type: string
+
+jobs:
+  automaxfix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download failure log artifact
+        if: ${{ inputs['test-output-artifact'] != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs['test-output-artifact'] }}
+          path: ${{ github.workspace }}
+
+      - name: Resolve approval gate
+        id: approval-gate
+        shell: bash
+        env:
+          INPUT_REQUIRE_APPROVAL: ${{ inputs['require-approval'] }}
+          PR_LABELS_JSON: ${{ toJson(github.event.pull_request.labels.*.name) }}
+          ISSUE_LABELS_JSON: ${{ toJson(github.event.issue.labels.*.name) }}
+          COMMENT_BODY: ${{ github.event.comment.body || '' }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+
+          requested = os.environ["INPUT_REQUIRE_APPROVAL"].strip().lower() == "true"
+          labels = set(json.loads(os.environ.get("PR_LABELS_JSON") or "[]"))
+          labels.update(json.loads(os.environ.get("ISSUE_LABELS_JSON") or "[]"))
+          comment_body = os.environ.get("COMMENT_BODY", "").strip().lower()
+
+          approval_triggered = "automaxfix-approved" in labels or "/automaxfix approve" in comment_body
+          effective_require_approval = requested and not approval_triggered
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+              print(
+                  f"require_approval={'true' if effective_require_approval else 'false'}",
+                  file=handle,
+              )
+              print(
+                  f"approval_triggered={'true' if approval_triggered else 'false'}",
+                  file=handle,
+              )
+          PY
+
+      - name: Run AutoMaxFix
+        id: automaxfix
+        uses: ./.github/actions/automaxfix-action
+        with:
+          test-runner: ${{ inputs['test-runner'] }}
+          test-output-path: ${{ inputs['test-output-path'] }}
+          agent: ${{ inputs.agent }}
+          require-approval: ${{ steps['approval-gate'].outputs.require_approval }}
+          open-pr: ${{ inputs['open-pr'] }}
+          install-target: ${{ inputs['install-target'] }}
+
+      - name: Upload AutoMaxFix report
+        id: upload-report
+        if: ${{ steps.automaxfix.outputs['report-path'] != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.automaxfix.outputs['ticket-id'] != '' && format('automaxfix-report-{0}', steps.automaxfix.outputs['ticket-id']) || 'automaxfix-report' }}
+          path: ${{ steps.automaxfix.outputs['report-path'] }}
+          if-no-files-found: error
+
+      - name: Build report link
+        id: report-link
+        if: ${{ steps['upload-report'].outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "report_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts/${{ steps['upload-report'].outputs['artifact-id'] }}" >> "$GITHUB_OUTPUT"
+
+      - name: Clean AutoMaxFix state before publishing code changes
+        id: prepare-commit
+        if: ${{ steps.automaxfix.outputs.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .automaxfix/tickets .automaxfix/reports .automaxfix/logs .automaxfix/ci.config.yml
+          if git status --porcelain | grep -q .; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Push patch directly
+        id: direct-push
+        if: ${{ steps.automaxfix.outputs.outcome == 'success' && inputs['open-pr'] == false && steps['prepare-commit'].outputs.has_changes == 'true' }}
+        continue-on-error: true
+        shell: bash
+        env:
+          TARGET_BRANCH: ${{ github.head_ref || github.ref_name }}
+          TICKET_ID: ${{ steps.automaxfix.outputs['ticket-id'] }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "automaxfix: apply ${TICKET_ID}"
+          git push origin "HEAD:${TARGET_BRANCH}"
+
+      - name: Open pull request with patch
+        id: create-pr
+        if: ${{ steps.automaxfix.outputs.outcome == 'success' && inputs['open-pr'] == true && steps['prepare-commit'].outputs.has_changes == 'true' }}
+        continue-on-error: true
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: "${{ format('automaxfix/{0}', steps.automaxfix.outputs['ticket-id'] || github.run_id) }}"
+          commit-message: "${{ format('automaxfix: apply {0}', steps.automaxfix.outputs['ticket-id'] || 'ci-fix') }}"
+          title: "${{ format('AutoMaxFix: {0}', steps.automaxfix.outputs['ticket-id'] || 'CI repair') }}"
+          body: |
+            Auto-generated by AutoMaxFix.
+
+            Ticket: `${{ steps.automaxfix.outputs['ticket-id'] }}`
+            Summary: ${{ steps.automaxfix.outputs['patch-summary'] }}
+            Report: ${{ steps['report-link'].outputs.report_url || steps.automaxfix.outputs['run-url'] }}
+          labels: |
+            automaxfix
+
+      - name: Comment on PR or issue
+        if: ${{ always() }}
+        uses: actions/github-script@v7
+        env:
+          OUTCOME: ${{ steps.automaxfix.outputs.outcome }}
+          PATCH_SUMMARY: ${{ steps.automaxfix.outputs['patch-summary'] }}
+          ERROR_MESSAGE: ${{ steps.automaxfix.outputs['error-message'] }}
+          TICKET_ID: ${{ steps.automaxfix.outputs['ticket-id'] }}
+          REPORT_URL: ${{ steps['report-link'].outputs.report_url || steps.automaxfix.outputs['run-url'] }}
+          PR_URL: ${{ steps['create-pr'].outputs['pull-request-url'] }}
+          DIRECT_PUSH_OUTCOME: ${{ steps['direct-push'].outcome }}
+          CREATE_PR_OUTCOME: ${{ steps['create-pr'].outcome }}
+          APPROVAL_TRIGGERED: ${{ steps['approval-gate'].outputs.approval_triggered }}
+          OPEN_PR: ${{ inputs['open-pr'] }}
+        with:
+          script: |
+            const issueNumber = context.payload.pull_request?.number ?? context.payload.issue?.number;
+            if (!issueNumber) {
+              core.info("No PR or issue context was available for AutoMaxFix commenting.");
+              return;
+            }
+
+            const outcome = process.env.OUTCOME || "failure";
+            const patchSummary = process.env.PATCH_SUMMARY || "No patch summary was recorded.";
+            const errorMessage = process.env.ERROR_MESSAGE || "AutoMaxFix did not emit an error message.";
+            const ticketId = process.env.TICKET_ID || "unknown";
+            const reportUrl = process.env.REPORT_URL || "";
+            const prUrl = process.env.PR_URL || "";
+            const publishFailed =
+              process.env.DIRECT_PUSH_OUTCOME === "failure" ||
+              process.env.CREATE_PR_OUTCOME === "failure";
+
+            let body;
+            if (outcome === "success" && !publishFailed) {
+              body = [
+                "## AutoMaxFix applied a CI patch",
+                `Ticket: \`${ticketId}\``,
+                `Summary: ${patchSummary}`,
+                reportUrl ? `Report: ${reportUrl}` : "Report: attached to this workflow run.",
+                prUrl
+                  ? `Pull request: ${prUrl}`
+                  : (process.env.OPEN_PR === "false" ? "Patch was pushed directly to the workflow branch." : "Patch was applied in the workflow workspace."),
+              ].join("\n");
+            } else if (outcome === "approval_required") {
+              body = [
+                "## AutoMaxFix is awaiting approval",
+                `Ticket: \`${ticketId}\``,
+                `Summary: ${patchSummary}`,
+                reportUrl ? `Report: ${reportUrl}` : "Report: attached to this workflow run.",
+                process.env.APPROVAL_TRIGGERED === "true"
+                  ? "Approval trigger was detected, but the workflow still paused before applying a patch."
+                  : "Add the `automaxfix-approved` label or comment `/automaxfix approve`, then rerun the workflow to let AutoMaxFix apply the patch.",
+                "[automaxfix-awaiting-approval]",
+              ].join("\n");
+            } else {
+              body = [
+                "## AutoMaxFix failed in CI",
+                `Ticket: \`${ticketId}\``,
+                `Error: ${errorMessage}`,
+                reportUrl ? `Report: ${reportUrl}` : "Report: attached to this workflow run.",
+                "[manual-investigation-needed]",
+              ].join("\n");
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body,
+            });
+
+      - name: Fail workflow on unrecoverable AutoMaxFix errors
+        if: ${{ steps.automaxfix.outputs.outcome == 'failure' || steps['direct-push'].outcome == 'failure' || steps['create-pr'].outcome == 'failure' }}
+        shell: bash
+        run: |
+          echo "AutoMaxFix failed or could not publish the patch."
+          exit 1

@@ -1,0 +1,13 @@
+running 1 test
+test tests::loads_fixture ... FAILED
+
+failures:
+
+---- tests::loads_fixture stderr ----
+thread 'tests::loads_fixture' panicked at tests/integration.rs:41:5:
+fixture file was missing
+
+failures:
+    tests::loads_fixture
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out

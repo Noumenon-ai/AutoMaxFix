@@ -1,0 +1,8 @@
+ FAIL  tests/setup.test.ts > setup > loads config
+Error: missing APP_CONFIG environment variable
+
+ ❯ tests/setup.test.ts:3:5
+      1| import { loadConfig } from '../src/config'
+      2|
+      3| loadConfig()
+       |     ^

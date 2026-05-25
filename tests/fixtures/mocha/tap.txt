@@ -1,0 +1,16 @@
+TAP version 13
+not ok 1 math adds numbers
+  ---
+  message: expected 4 to equal 3
+  severity: fail
+  data:
+    at: test/math.tap.js:12:14
+  ...
+not ok 2 math subtracts numbers
+  ---
+  message: expected 0 to equal 1
+  severity: fail
+  data:
+    at: test/math.tap.js:18:14
+  ...
+1..2

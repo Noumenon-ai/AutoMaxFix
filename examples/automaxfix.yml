@@ -1,0 +1,25 @@
+repo_path: "."
+test_command: "pytest -q"
+targeted_test_command: "pytest {test_file} -v"
+tickets_dir: ".automaxfix/tickets"
+reports_dir: ".automaxfix/reports"
+allowed_paths:
+  - "."
+blocked_paths:
+  - ".git"
+  - ".venv"
+  - "node_modules"
+  - "__pycache__"
+require_reproduction_test: true
+agent:
+  mode: "manual_patch_file"
+  command: null
+  timeout_seconds: 900
+patch:
+  require_unified_diff: true
+  max_patch_attempts: 3
+  max_files_changed: 8
+  allow_new_tests: true
+  allow_new_source_files: false
+approval:
+  require_human_approval: true
