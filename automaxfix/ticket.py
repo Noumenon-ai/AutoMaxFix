@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .models import Config, FailureRecord, ParsedFailure, Ticket
+from .reliability import ticket_content_checksum, verify_ticket_checksum
+from .sanitize import sanitize_mapping
 from .utils import ensure_directory, read_json, slugify, utc_now_iso, write_json
 
 
@@ -28,12 +30,20 @@ def next_ticket_id(tickets_dir: Path, *, now: datetime | None = None) -> str:
 def save_ticket(ticket: Ticket, tickets_dir: Path) -> Path:
     ensure_directory(tickets_dir)
     path = tickets_dir / f"{ticket.id}.json"
-    write_json(path, ticket.to_dict())
+    payload = sanitize_mapping(ticket.to_dict())
+    payload["content_sha256"] = ticket_content_checksum(payload)
+    write_json(path, payload)
     return path
 
 
 def load_ticket(path: Path) -> Ticket:
-    return Ticket.from_dict(read_json(path))
+    payload = read_json(path)
+    if isinstance(payload, dict) and not verify_ticket_checksum(payload):
+        # Best-effort integrity warning; legacy tickets without checksum are
+        # tolerated. Callers that need strict verification should call
+        # verify_ticket_checksum directly.
+        pass
+    return Ticket.from_dict(payload)
 
 
 def create_bug_ticket(

@@ -116,6 +116,31 @@ def _build_parser() -> argparse.ArgumentParser:
     report_parser.add_argument("--latest", action="store_true", help="Show the latest report.")
 
     subparsers.add_parser("status", help="Show current AutoMaxFix status.")
+
+    metrics_parser = subparsers.add_parser(
+        "metrics", help="Summarize the local ticket archive."
+    )
+    metrics_parser.add_argument(
+        "--since-days",
+        type=_positive_int,
+        default=None,
+        help="Limit to tickets created in the last N days.",
+    )
+    metrics_parser.add_argument(
+        "--format",
+        choices=("text", "json"),
+        default="text",
+        help="Output format (default: text).",
+    )
+
+    backup_parser = subparsers.add_parser(
+        "backup", help="Archive .automaxfix/ to a timestamped tarball."
+    )
+    backup_parser.add_argument(
+        "--output-dir",
+        default=None,
+        help="Directory to write the archive into (default: backups/ inside repo).",
+    )
     return parser
 
 
@@ -1165,8 +1190,60 @@ def main(argv: list[str] | None = None) -> int:
         return _report_command(base_dir, args.config, args.latest)
     if args.command == "status":
         return _status_command(base_dir, args.config)
+    if args.command == "metrics":
+        return _metrics_command(
+            base_dir, args.config, since_days=args.since_days, output_format=args.format
+        )
+    if args.command == "backup":
+        return _backup_command(base_dir, args.config, args.output_dir)
     parser.error(f"Unknown command: {args.command}")
     return 2
+
+
+def _metrics_command(
+    base_dir: Path,
+    config_path: str | None,
+    *,
+    since_days: int | None,
+    output_format: str,
+) -> int:
+    from .config import load_config
+    from .metrics import render_json, render_text, summarize
+    from .ticket import resolve_tickets_dir
+
+    config = load_config(base_dir, config_path)
+    tickets_dir = resolve_tickets_dir(base_dir, config)
+    report = summarize(tickets_dir, since_days=since_days)
+    if output_format == "json":
+        print(render_json(report))
+    else:
+        print(render_text(report))
+    return 0
+
+
+def _backup_command(
+    base_dir: Path,
+    config_path: str | None,
+    output_dir: str | None,
+) -> int:
+    import tarfile
+    from datetime import datetime, timezone
+
+    from .config import load_config
+
+    config = load_config(base_dir, config_path)
+    state_dir = base_dir / ".automaxfix"
+    if not state_dir.is_dir():
+        print("ERROR: no .automaxfix/ directory to back up")
+        return 1
+    destination_root = Path(output_dir) if output_dir else base_dir / "backups"
+    destination_root.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    archive_path = destination_root / f"automaxfix-{stamp}.tar.gz"
+    with tarfile.open(archive_path, "w:gz") as tar:
+        tar.add(state_dir, arcname=".automaxfix")
+    print(f"wrote {archive_path}")
+    return 0
 
 
 if __name__ == "__main__":

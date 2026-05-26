@@ -1,14 +1,44 @@
+# Project-local state
 .automaxfix/
 .AutoMaxFix/
-.pytest_cache/
-__pycache__/
-.venv/
-*.egg-info/
-*.pyc
 .codex/
 .agents/
 
-# Local-only artifacts (kept outside the repo)
+# Python build artifacts
+.pytest_cache/
+__pycache__/
+*.pyc
+*.egg-info/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# Environments
+.venv/
+.env
+.env.*
+!.env.example
+
+# Secrets and keys (defense in depth - pre-commit also blocks these)
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+credentials.json
+service-account*.json
+*.token
+
+# Lock files (committed - this is just a guard against generated noise)
+poetry.lock.bak
+
+# Local-only artifacts
 AMF_LAUNCH_PLAYBOOK.md
 AMF_LAUNCH_PLAYBOOK.pdf
 
@@ -16,3 +46,4 @@ AMF_LAUNCH_PLAYBOOK.pdf
 .DS_Store
 .idea/
 .vscode/
+Thumbs.db
