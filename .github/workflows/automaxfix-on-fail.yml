@@ -152,7 +152,7 @@ jobs:
         id: create-pr
         if: ${{ steps.automaxfix.outputs.outcome == 'success' && inputs['open-pr'] == true && steps['prepare-commit'].outputs.has_changes == 'true' }}
         continue-on-error: true
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           branch: "${{ format('automaxfix/{0}', steps.automaxfix.outputs['ticket-id'] || github.run_id) }}"
           commit-message: "${{ format('automaxfix: apply {0}', steps.automaxfix.outputs['ticket-id'] || 'ci-fix') }}"
