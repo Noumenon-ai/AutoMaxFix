@@ -5,7 +5,9 @@ from automaxfix.ticket import load_ticket
 from tests.helpers import create_phase2_repo, write_repo_config
 
 
-def test_phase3_cli_retries_invalid_diff_once_then_passes(tmp_path, monkeypatch) -> None:
+def test_phase3_cli_retries_invalid_diff_once_then_passes(
+    tmp_path, monkeypatch
+) -> None:
     repo_root, ticket_path = create_phase2_repo(tmp_path)
     script_path = tmp_path / "retry_agent.py"
     script_path.write_text(
@@ -55,11 +57,16 @@ approval:
     )
 
     monkeypatch.chdir(repo_root)
-    assert main(["run", "--ticket", str(ticket_path), "--agent", "codex_cli", "--yes"]) == 0
+    assert (
+        main(["run", "--ticket", str(ticket_path), "--agent", "codex_cli", "--yes"])
+        == 0
+    )
 
     ticket = load_ticket(ticket_path)
     assert ticket.status == "passed"
-    report = sorted((repo_root / ".automaxfix" / "reports").glob("*.md"))[-1].read_text(encoding="utf-8")
+    report = sorted((repo_root / ".automaxfix" / "reports").glob("*.md"))[-1].read_text(
+        encoding="utf-8"
+    )
     assert "Invalid diff retries: 1" in report
     assert "Attempt count: 2" in report
     assert "Final verdict: PASS" in report
@@ -108,11 +115,16 @@ approval:
     )
 
     monkeypatch.chdir(repo_root)
-    assert main(["run", "--ticket", str(ticket_path), "--agent", "codex_cli", "--yes"]) == 0
+    assert (
+        main(["run", "--ticket", str(ticket_path), "--agent", "codex_cli", "--yes"])
+        == 0
+    )
 
     ticket = load_ticket(ticket_path)
     assert ticket.status == "failed"
-    report = sorted((repo_root / ".automaxfix" / "reports").glob("*.md"))[-1].read_text(encoding="utf-8")
+    report = sorted((repo_root / ".automaxfix" / "reports").glob("*.md"))[-1].read_text(
+        encoding="utf-8"
+    )
     assert "Invalid diff retries: 0" in report
     assert "Attempt count: 1" in report
     assert "Editing .env is blocked" in report

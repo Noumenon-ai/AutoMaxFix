@@ -26,7 +26,9 @@ def test_cli_bug_creates_ticket(tmp_path: Path, monkeypatch) -> None:
     assert payload["title"] == "sample bug"
 
 
-def test_cli_scan_creates_ticket_from_pytest_output(tmp_path: Path, monkeypatch) -> None:
+def test_cli_scan_creates_ticket_from_pytest_output(
+    tmp_path: Path, monkeypatch
+) -> None:
     monkeypatch.chdir(tmp_path)
     main(["init"])
     output_path = tmp_path / "failed.txt"
@@ -43,7 +45,9 @@ def test_cli_reproduce_creates_prompt_file(tmp_path: Path, monkeypatch) -> None:
     repo_root, ticket_path = create_phase2_repo(tmp_path)
     monkeypatch.chdir(repo_root)
     assert main(["reproduce", "--ticket", str(ticket_path)]) == 0
-    prompts = sorted((repo_root / ".automaxfix" / "logs").glob("reproduce_*.prompt.txt"))
+    prompts = sorted(
+        (repo_root / ".automaxfix" / "logs").glob("reproduce_*.prompt.txt")
+    )
     assert len(prompts) == 1
     assert "Output a unified diff only." in prompts[0].read_text(encoding="utf-8")
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-
 LOCATION_PATTERN = re.compile(
     r"(?P<path>(?:[A-Za-z]:)?(?:[^\s:()]+[/\\])*[^\s:()]+\.[A-Za-z0-9_]+)"
     r":(?P<line>\d+)(?::(?P<column>\d+))?"
@@ -24,7 +23,9 @@ def normalize_file_path(path_text: str, repo_root: Path) -> str:
             return str(path.relative_to(repo_root)).replace("\\", "/")
         except ValueError:
             try:
-                return str(path.resolve().relative_to(repo_root.resolve())).replace("\\", "/")
+                return str(path.resolve().relative_to(repo_root.resolve())).replace(
+                    "\\", "/"
+                )
             except (OSError, RuntimeError, ValueError):
                 return str(path).replace("\\", "/")
     return cleaned

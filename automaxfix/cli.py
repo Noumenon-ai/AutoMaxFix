@@ -6,7 +6,12 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Callable
 
-from .agent_runner import AgentRunError, build_agent_prompt, load_patch_from_file, run_agent_patch
+from .agent_runner import (
+    AgentRunError,
+    build_agent_prompt,
+    load_patch_from_file,
+    run_agent_patch,
+)
 from .approval import evaluate_approval
 from .config import load_config, write_default_config
 from .models import (
@@ -44,7 +49,6 @@ from .workspace import (
 from .watcher import WatchError, watch_loop
 from .safety import resolve_repo_root
 
-
 _STRATEGY_LADDER = (
     StrategyName.MINIMAL,
     StrategyName.TEST_FIRST,
@@ -61,33 +65,57 @@ def _positive_int(value: str) -> int:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="automaxfix", description="Controlled repair loop for AI-built software.")
+    parser = argparse.ArgumentParser(
+        prog="automaxfix", description="Controlled repair loop for AI-built software."
+    )
     parser.add_argument("--config", help="Path to config file.", default=None)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     init_parser = subparsers.add_parser("init", help="Create .automaxfix scaffolding.")
-    init_parser.add_argument("--force", action="store_true", help="Overwrite config.yml if it already exists.")
+    init_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite config.yml if it already exists.",
+    )
 
-    scan_parser = subparsers.add_parser("scan", help="Create tickets from test runner output.")
+    scan_parser = subparsers.add_parser(
+        "scan", help="Create tickets from test runner output."
+    )
     scan_group = scan_parser.add_mutually_exclusive_group(required=True)
     scan_group.add_argument("--pytest-output", help="Path to captured pytest output.")
     scan_group.add_argument("--jest-output", help="Path to captured Jest output.")
     scan_group.add_argument("--vitest-output", help="Path to captured Vitest output.")
     scan_group.add_argument("--mocha-output", help="Path to captured Mocha output.")
     scan_group.add_argument("--go-output", help="Path to captured go test output.")
-    scan_group.add_argument("--cargo-output", help="Path to captured cargo test output.")
-    scan_group.add_argument("--from-file", help="Path to captured test output for any registered format.")
-    scan_parser.add_argument("--format", choices=sorted(SCANNERS), help="Format name for --from-file.")
+    scan_group.add_argument(
+        "--cargo-output", help="Path to captured cargo test output."
+    )
+    scan_group.add_argument(
+        "--from-file", help="Path to captured test output for any registered format."
+    )
+    scan_parser.add_argument(
+        "--format", choices=sorted(SCANNERS), help="Format name for --from-file."
+    )
 
     bug_parser = subparsers.add_parser("bug", help="Create a ticket from a bug report.")
     bug_parser.add_argument("bug_report", help="Plain-English bug report.")
 
-    reproduce_parser = subparsers.add_parser("reproduce", help="Prepare a reproduction brief for one ticket.")
-    reproduce_parser.add_argument("--ticket", required=True, help="Path to a ticket JSON file.")
+    reproduce_parser = subparsers.add_parser(
+        "reproduce", help="Prepare a reproduction brief for one ticket."
+    )
+    reproduce_parser.add_argument(
+        "--ticket", required=True, help="Path to a ticket JSON file."
+    )
 
-    run_parser = subparsers.add_parser("run", help="Run the safe patch loop for one ticket.")
-    run_parser.add_argument("--ticket", required=True, help="Path to a ticket JSON file.")
-    run_parser.add_argument("--patch-file", help="Unified diff file to apply in manual patch mode.")
+    run_parser = subparsers.add_parser(
+        "run", help="Run the safe patch loop for one ticket."
+    )
+    run_parser.add_argument(
+        "--ticket", required=True, help="Path to a ticket JSON file."
+    )
+    run_parser.add_argument(
+        "--patch-file", help="Unified diff file to apply in manual patch mode."
+    )
     run_parser.add_argument(
         "--agent",
         choices=["manual_patch_file", "codex_cli", "claude_cli"],
@@ -99,12 +127,24 @@ def _build_parser() -> argparse.ArgumentParser:
         default=3,
         help="Maximum strategy attempts for agent repair mode (default: 3).",
     )
-    run_parser.add_argument("--no-repro", action="store_true", help="Skip the reproduction check.")
-    run_parser.add_argument("--yes", action="store_true", help="Approve the proposed patch and apply it.")
+    run_parser.add_argument(
+        "--no-repro", action="store_true", help="Skip the reproduction check."
+    )
+    run_parser.add_argument(
+        "--yes", action="store_true", help="Approve the proposed patch and apply it."
+    )
 
-    watch_parser = subparsers.add_parser("watch", help="Poll a test command and auto-run repairs.")
-    watch_parser.add_argument("--test-runner", required=True, help="Scanner/runtime name used to parse failures.")
-    watch_parser.add_argument("--command", dest="watch_command", required=True, help="Test command to poll.")
+    watch_parser = subparsers.add_parser(
+        "watch", help="Poll a test command and auto-run repairs."
+    )
+    watch_parser.add_argument(
+        "--test-runner",
+        required=True,
+        help="Scanner/runtime name used to parse failures.",
+    )
+    watch_parser.add_argument(
+        "--command", dest="watch_command", required=True, help="Test command to poll."
+    )
     watch_parser.add_argument(
         "--interval",
         type=_positive_int,
@@ -113,7 +153,9 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     report_parser = subparsers.add_parser("report", help="Print the latest report.")
-    report_parser.add_argument("--latest", action="store_true", help="Show the latest report.")
+    report_parser.add_argument(
+        "--latest", action="store_true", help="Show the latest report."
+    )
 
     subparsers.add_parser("status", help="Show current AutoMaxFix status.")
 
@@ -191,7 +233,9 @@ def _validation_summary(validation: PatchValidationResult) -> str:
 
 def _strategy_attempts(ticket, max_attempts: int) -> list[StrategyName]:
     exhausted = ticket.strategy_memo.exhausted_strategies()
-    return [strategy for strategy in _STRATEGY_LADDER if strategy not in exhausted][:max_attempts]
+    return [strategy for strategy in _STRATEGY_LADDER if strategy not in exhausted][
+        :max_attempts
+    ]
 
 
 def _record_strategy_attempt(
@@ -233,9 +277,13 @@ def _post_patch_failure_reason(
     regression_result: CommandResult,
 ) -> str:
     if targeted_after is not None and not targeted_after.passed:
-        return "Targeted tests failed after patch: " + _command_failure_detail(targeted_after)
+        return "Targeted tests failed after patch: " + _command_failure_detail(
+            targeted_after
+        )
     if not regression_result.passed:
-        return "Regression suite failed after patch: " + _command_failure_detail(regression_result)
+        return "Regression suite failed after patch: " + _command_failure_detail(
+            regression_result
+        )
     return "Patch applied but one or more post-patch checks failed."
 
 
@@ -246,7 +294,9 @@ def _last_strategy_failure(ticket) -> str:
     return "No strategies remaining for this ticket."
 
 
-def _agent_attempt_tag(ticket_id: str, strategy_number: int, strategy: StrategyName) -> str:
+def _agent_attempt_tag(
+    ticket_id: str, strategy_number: int, strategy: StrategyName
+) -> str:
     return f"{ticket_id}-s{strategy_number:02d}-{strategy.value}"
 
 
@@ -279,7 +329,9 @@ def _run_strategy_agent_loop(
             attempt_number=len(attempts) + 1,
             validation_errors=retry_errors,
         )
-        validation = validate_patch_text(attempt.stdout, repo_root=repo_root, config=config)
+        validation = validate_patch_text(
+            attempt.stdout, repo_root=repo_root, config=config
+        )
         attempt.is_valid_diff = validation.valid
         attempt.validation_errors = list(validation.errors)
         attempt.retryable_invalid_diff = validation.retryable_invalid_diff
@@ -290,7 +342,10 @@ def _run_strategy_agent_loop(
         if validation.valid:
             invalid_diff_retries = retry_index
             break
-        if not validation.retryable_invalid_diff or retry_index + 1 == max_invalid_attempts:
+        if (
+            not validation.retryable_invalid_diff
+            or retry_index + 1 == max_invalid_attempts
+        ):
             invalid_diff_retries = retry_index
             break
         retry_errors = list(validation.errors)
@@ -331,7 +386,9 @@ def _scan_output_text(
     )
 
 
-def _scan_command(base_dir: Path, config_path: str | None, source: str, output_path: str) -> int:
+def _scan_command(
+    base_dir: Path, config_path: str | None, source: str, output_path: str
+) -> int:
     config = load_config(base_dir, config_path)
     repo_root = resolve_repo_root(base_dir, config)
     resolved_path = resolve_path(base_dir, output_path)
@@ -353,7 +410,9 @@ def _scan_command(base_dir: Path, config_path: str | None, source: str, output_p
     return 0
 
 
-def _resolve_scan_source(args: argparse.Namespace, parser: argparse.ArgumentParser) -> tuple[str, str]:
+def _resolve_scan_source(
+    args: argparse.Namespace, parser: argparse.ArgumentParser
+) -> tuple[str, str]:
     source_flags = {
         "pytest": args.pytest_output,
         "jest": args.jest_output,
@@ -423,13 +482,17 @@ def _status_command(base_dir: Path, config_path: str | None) -> int:
     print(f"Agent mode: {config.agent.mode}")
     print(f"Configured max patch attempts: {config.patch.max_patch_attempts}")
     if config.agent.mode != "manual_patch_file":
-        print(f"Active attempts for current mode: {_max_invalid_diff_attempts(config, config.agent.mode)}")
+        print(
+            f"Active attempts for current mode: {_max_invalid_diff_attempts(config, config.agent.mode)}"
+        )
     print(f"Tickets: {ticket_count}")
     print(f"Reports: {report_count}")
     return 0
 
 
-def _reproduce_command(base_dir: Path, config_path: str | None, ticket_path: str) -> int:
+def _reproduce_command(
+    base_dir: Path, config_path: str | None, ticket_path: str
+) -> int:
     config = load_config(base_dir, config_path)
     repo_root = resolve_repo_root(base_dir, config)
     ticket = load_ticket(resolve_path(base_dir, ticket_path))
@@ -437,7 +500,11 @@ def _reproduce_command(base_dir: Path, config_path: str | None, ticket_path: str
         ticket.reproduction_test = suggest_reproduction_test_path(ticket)
         save_ticket(ticket, resolve_tickets_dir(repo_root, config))
     repo_context = inspect_repo(ticket, repo_root)
-    prompt_mode = config.agent.mode if config.agent.mode in {"codex_cli", "claude_cli"} else "codex_cli"
+    prompt_mode = (
+        config.agent.mode
+        if config.agent.mode in {"codex_cli", "claude_cli"}
+        else "codex_cli"
+    )
     prompt = build_agent_prompt(
         mode=prompt_mode,
         ticket=ticket,
@@ -514,15 +581,22 @@ def _run_command_with_config(
     repo_context = inspect_repo(ticket, repo_root)
     tickets_dir = resolve_tickets_dir(repo_root, config)
 
-    agent_mode = "manual_patch_file" if patch_file else (agent_override or config.agent.mode)
+    agent_mode = (
+        "manual_patch_file" if patch_file else (agent_override or config.agent.mode)
+    )
     agent_used = agent_mode
     attempts: list[AgentAttempt] = []
     reproduction_before_patch = "Skipped via --no-repro."
     targeted_before = None
 
     if config.require_reproduction_test and not skip_repro:
-        if not ticket.reproduction_test or not (repo_root / ticket.reproduction_test).exists():
-            message = "No reproduction test found. Create reproduction test before patching."
+        if (
+            not ticket.reproduction_test
+            or not (repo_root / ticket.reproduction_test).exists()
+        ):
+            message = (
+                "No reproduction test found. Create reproduction test before patching."
+            )
             ticket.result = message
             save_ticket(ticket, tickets_dir)
             report_path = _write_report(
@@ -590,13 +664,13 @@ def _run_command_with_config(
             print(report_path)
             return 0
 
-        reproduction_before_patch = (
-            f"Failed as expected via {targeted_before.command} (exit {targeted_before.returncode})."
-        )
+        reproduction_before_patch = f"Failed as expected via {targeted_before.command} (exit {targeted_before.returncode})."
         ticket.status = "reproduced"
         save_ticket(ticket, tickets_dir)
 
-    reproduction_gate = "passed" if skip_repro or targeted_before is not None else "not run"
+    reproduction_gate = (
+        "passed" if skip_repro or targeted_before is not None else "not run"
+    )
     validation: PatchValidationResult | None = None
     final_diff_validation = "not run"
     files_changed: list[str] = []
@@ -612,7 +686,11 @@ def _run_command_with_config(
     approval_gate = "not run"
     patch_apply_gate = "not run"
     persist_strategy_memo = patch_file is None
-    strategy_plan = [StrategyName.MINIMAL] if patch_file else _strategy_attempts(ticket, max_attempts)
+    strategy_plan = (
+        [StrategyName.MINIMAL]
+        if patch_file
+        else _strategy_attempts(ticket, max_attempts)
+    )
 
     if not strategy_plan:
         final_message = _last_strategy_failure(ticket)
@@ -675,21 +753,25 @@ def _run_command_with_config(
                     output_file=resolve_path(base_dir, patch_file),
                     stdout=patch_result.patch_text,
                 )
-                validation = validate_patch_text(final_patch_text, repo_root=repo_root, config=config)
+                validation = validate_patch_text(
+                    final_patch_text, repo_root=repo_root, config=config
+                )
                 manual_attempt.is_valid_diff = validation.valid
                 manual_attempt.validation_errors = list(validation.errors)
                 manual_attempt.retryable_invalid_diff = False
                 attempts.append(manual_attempt)
                 agent_used = "manual_patch_file"
             else:
-                validation, final_patch_text, agent_used, invalid_diff_retries = _run_strategy_agent_loop(
-                    agent_mode=agent_mode,
-                    repo_root=repo_root,
-                    config=config,
-                    ticket=ticket,
-                    repo_context=repo_context,
-                    attempts=attempts,
-                    strategy=strategy,
+                validation, final_patch_text, agent_used, invalid_diff_retries = (
+                    _run_strategy_agent_loop(
+                        agent_mode=agent_mode,
+                        repo_root=repo_root,
+                        config=config,
+                        ticket=ticket,
+                        repo_context=repo_context,
+                        attempts=attempts,
+                        strategy=strategy,
+                    )
                 )
                 total_invalid_diff_retries += invalid_diff_retries
         except AgentRunError as exc:
@@ -736,7 +818,9 @@ def _run_command_with_config(
             ticket.status = "failed"
             ticket.result = final_message
             ticket.patch_summary = None
-            ticket.tests_run = [targeted_before.command] if targeted_before is not None else []
+            ticket.tests_run = (
+                [targeted_before.command] if targeted_before is not None else []
+            )
             save_ticket(ticket, tickets_dir)
             report_path = _write_report(
                 repo_root=repo_root,
@@ -815,10 +899,14 @@ def _run_command_with_config(
                 workspace=workspace,
             )
         else:
-            approval = evaluate_approval(config, approved=approved, workspace_dirty=workspace.is_dirty)
+            approval = evaluate_approval(
+                config, approved=approved, workspace_dirty=workspace.is_dirty
+            )
         approval_text = approval.reason
         if workspace.is_dirty and workspace.status_lines:
-            approval_text += " Existing changes: " + ", ".join(workspace.status_lines[:10])
+            approval_text += " Existing changes: " + ", ".join(
+                workspace.status_lines[:10]
+            )
         if not approval.approved:
             final_message = approval.reason
             approval_gate = "failed"
@@ -857,7 +945,11 @@ def _run_command_with_config(
         approval_gate = "passed"
         strategy_tag = _agent_attempt_tag(
             ticket.id,
-            len(ticket.strategy_memo.attempts) + 1 if persist_strategy_memo else run_strategy_number,
+            (
+                len(ticket.strategy_memo.attempts) + 1
+                if persist_strategy_memo
+                else run_strategy_number
+            ),
             strategy,
         )
         reports_dir = resolve_reports_dir(repo_root, config)
@@ -875,11 +967,15 @@ def _run_command_with_config(
         except WorkspaceError as exc:
             patch_apply_gate = "failed"
             final_message = str(exc)
-            rollback_instructions = f"Reapply the saved pre-patch diff if needed: git apply {backup_path}"
+            rollback_instructions = (
+                f"Reapply the saved pre-patch diff if needed: git apply {backup_path}"
+            )
             ticket.status = "failed"
             ticket.result = final_message
             ticket.patch_summary = None
-            ticket.tests_run = [targeted_before.command] if targeted_before is not None else []
+            ticket.tests_run = (
+                [targeted_before.command] if targeted_before is not None else []
+            )
             save_ticket(ticket, tickets_dir)
             report_path = _write_report(
                 repo_root=repo_root,
@@ -911,10 +1007,14 @@ def _run_command_with_config(
             return 0
 
         ticket.status = "patched"
-        ticket.patch_summary = f"Applied unified diff touching {len(validation.files_changed)} file(s)."
+        ticket.patch_summary = (
+            f"Applied unified diff touching {len(validation.files_changed)} file(s)."
+        )
 
         if ticket.reproduction_test and not skip_repro:
-            targeted_after = run_targeted_test(config, repo_root, ticket.reproduction_test)
+            targeted_after = run_targeted_test(
+                config, repo_root, ticket.reproduction_test
+            )
         regression_result = run_regression_suite(config, repo_root)
 
         ticket.tests_run = []
@@ -931,7 +1031,9 @@ def _run_command_with_config(
             and regression_result.passed
         )
         if passed:
-            final_message = "Patch validated, applied, and passed targeted and regression tests."
+            final_message = (
+                "Patch validated, applied, and passed targeted and regression tests."
+            )
             ticket.status = "passed"
             ticket.result = final_message
             if persist_strategy_memo:
@@ -945,11 +1047,11 @@ def _run_command_with_config(
                 )
             save_ticket(ticket, tickets_dir)
 
-            rollback_instructions = f"Reverse the applied patch with: git apply -R {applied_patch_path}"
+            rollback_instructions = (
+                f"Reverse the applied patch with: git apply -R {applied_patch_path}"
+            )
             if backup_path.stat().st_size:
-                rollback_instructions += (
-                    f" ; then restore prior working changes with: git apply {backup_path}"
-                )
+                rollback_instructions += f" ; then restore prior working changes with: git apply {backup_path}"
 
             report_path = _write_report(
                 repo_root=repo_root,
@@ -1004,9 +1106,7 @@ def _run_command_with_config(
             final_message = "Post-patch checks failed and rollback failed: " + str(exc)
             rollback_instructions = f"Reverse the applied patch manually with: git apply -R {applied_patch_path}"
             if backup_path.stat().st_size:
-                rollback_instructions += (
-                    f" ; then restore prior working changes with: git apply {backup_path}"
-                )
+                rollback_instructions += f" ; then restore prior working changes with: git apply {backup_path}"
             ticket.result = final_message
             save_ticket(ticket, tickets_dir)
             report_path = _write_report(
@@ -1124,7 +1224,9 @@ def _watch_command(
             output_text=output_text,
         )
 
-    def run_ticket(ticket_path: Path, approval_callback: Callable[..., ApprovalDecision]) -> int:
+    def run_ticket(
+        ticket_path: Path, approval_callback: Callable[..., ApprovalDecision]
+    ) -> int:
         return _run_command_with_config(
             base_dir,
             watch_config,

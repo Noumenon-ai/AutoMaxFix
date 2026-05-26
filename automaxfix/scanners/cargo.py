@@ -6,7 +6,6 @@ from pathlib import Path
 from ..models import FailureRecord
 from ._common import extract_location, first_summary_line, normalize_file_path
 
-
 _FAILED_TEST_PATTERN = re.compile(r"^test\s+(.+?)\s+\.\.\.\s+FAILED$", re.MULTILINE)
 _SECTION_PATTERN = re.compile(r"^----\s+(.+?)\s+(stdout|stderr)\s+----$", re.MULTILINE)
 _PANIC_PATTERN = re.compile(
@@ -19,7 +18,9 @@ def _section_blocks(text: str) -> dict[str, str]:
     blocks: dict[str, str] = {}
     matches = list(_SECTION_PATTERN.finditer(text))
     for index, match in enumerate(matches):
-        block_end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        block_end = (
+            matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        )
         blocks[match.group(1).strip()] = text[match.start() : block_end].strip()
     return blocks
 
@@ -39,7 +40,9 @@ def _summary_from_block(block: str) -> str:
 
 def scan(text: str, repo_root: Path) -> list[FailureRecord]:
     records: list[FailureRecord] = []
-    failed_tests = [match.group(1).strip() for match in _FAILED_TEST_PATTERN.finditer(text)]
+    failed_tests = [
+        match.group(1).strip() for match in _FAILED_TEST_PATTERN.finditer(text)
+    ]
     section_blocks = _section_blocks(text)
 
     for test_id in failed_tests:

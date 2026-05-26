@@ -10,7 +10,11 @@ from unittest.mock import Mock
 
 from automaxfix.models import Config, PatchValidationResult, WatchConfig
 from automaxfix.scanners import SCANNERS
-from automaxfix.ticket import create_ticket_from_failures, load_ticket, resolve_tickets_dir
+from automaxfix.ticket import (
+    create_ticket_from_failures,
+    load_ticket,
+    resolve_tickets_dir,
+)
 from automaxfix.watcher import WatchRuntime, watch_loop
 
 
@@ -212,7 +216,9 @@ def test_watch_failure_creates_ticket_from_scan(tmp_path: Path) -> None:
     repo_root = _create_repo_root(tmp_path)
     _, _, command = _write_fake_runner_script(
         tmp_path,
-        scenarios=[(1, "FAILED tests/test_sample.py::test_bug - AssertionError: boom\n")],
+        scenarios=[
+            (1, "FAILED tests/test_sample.py::test_bug - AssertionError: boom\n")
+        ],
     )
     output = io.StringIO()
     subprocess_run = _build_inprocess_subprocess_run()
@@ -243,11 +249,16 @@ def test_watch_failure_creates_ticket_from_scan(tmp_path: Path) -> None:
     assert summary.tickets_created == 1
     assert summary.patch_runs == 1
     assert len(tickets) == 1
-    assert load_ticket(tickets[0]).title == "Fix failing test tests/test_sample.py::test_bug"
+    assert (
+        load_ticket(tickets[0]).title
+        == "Fix failing test tests/test_sample.py::test_bug"
+    )
     run_ticket.assert_called_once()
 
 
-def test_watch_pass_after_fail_does_not_trigger_second_patch_run(tmp_path: Path) -> None:
+def test_watch_pass_after_fail_does_not_trigger_second_patch_run(
+    tmp_path: Path,
+) -> None:
     repo_root = _create_repo_root(tmp_path)
     _, _, command = _write_fake_runner_script(
         tmp_path,
@@ -296,7 +307,9 @@ def test_watch_prompts_for_approval_by_default(tmp_path: Path) -> None:
     repo_root = _create_repo_root(tmp_path)
     _, _, command = _write_fake_runner_script(
         tmp_path,
-        scenarios=[(1, "FAILED tests/test_sample.py::test_bug - AssertionError: boom\n")],
+        scenarios=[
+            (1, "FAILED tests/test_sample.py::test_bug - AssertionError: boom\n")
+        ],
     )
     output = io.StringIO()
     subprocess_run = _build_inprocess_subprocess_run()
@@ -345,7 +358,9 @@ def test_watch_autoapprove_skips_prompt_when_enabled(tmp_path: Path) -> None:
     repo_root = _create_repo_root(tmp_path)
     _, _, command = _write_fake_runner_script(
         tmp_path,
-        scenarios=[(1, "FAILED tests/test_sample.py::test_bug - AssertionError: boom\n")],
+        scenarios=[
+            (1, "FAILED tests/test_sample.py::test_bug - AssertionError: boom\n")
+        ],
     )
     output = io.StringIO()
     subprocess_run = _build_inprocess_subprocess_run()

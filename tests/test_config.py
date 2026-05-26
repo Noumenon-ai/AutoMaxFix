@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from automaxfix.config import load_config, parse_config_text, render_default_config, write_default_config
+from automaxfix.config import (
+    load_config,
+    parse_config_text,
+    render_default_config,
+    write_default_config,
+)
 
 
 def test_parse_default_config_text() -> None:
@@ -18,7 +23,14 @@ def test_parse_default_config_text() -> None:
     assert config.approval.require_human_approval is True
     assert config.watch_mode.enabled is True
     assert config.watch_mode.default_interval == 30
-    assert config.watch_mode.allowed_runners == ["pytest", "jest", "vitest", "mocha", "go", "cargo"]
+    assert config.watch_mode.allowed_runners == [
+        "pytest",
+        "jest",
+        "vitest",
+        "mocha",
+        "go",
+        "cargo",
+    ]
     assert config.watch_mode.auto_approve_in_watch is False
 
 
@@ -32,12 +44,10 @@ def test_load_config_from_dot_automaxfix(tmp_path: Path) -> None:
 
 
 def test_parse_config_supports_explicit_ci_mode() -> None:
-    config = parse_config_text(
-        """
+    config = parse_config_text("""
 repo_path: "."
 ci_mode: true
-"""
-    )
+""")
     assert config.ci_mode is True
     assert config.approval.require_human_approval is False
 
@@ -50,8 +60,7 @@ def test_load_config_allows_ci_mode_env_override(tmp_path: Path, monkeypatch) ->
 
 
 def test_parse_config_supports_watch_mode_block() -> None:
-    config = parse_config_text(
-        """
+    config = parse_config_text("""
 repo_path: "."
 watch_mode:
   enabled: true
@@ -60,15 +69,16 @@ watch_mode:
     - "pytest"
     - "generic"
   auto_approve_in_watch: true
-"""
-    )
+""")
     assert config.watch_mode.enabled is True
     assert config.watch_mode.default_interval == 12
     assert config.watch_mode.allowed_runners == ["pytest", "generic"]
     assert config.watch_mode.auto_approve_in_watch is True
 
 
-def test_load_config_allows_watch_autoapprove_env_override(tmp_path: Path, monkeypatch) -> None:
+def test_load_config_allows_watch_autoapprove_env_override(
+    tmp_path: Path, monkeypatch
+) -> None:
     monkeypatch.setenv("AUTOMAXFIX_WATCH_AUTOAPPROVE", "1")
     config = load_config(tmp_path)
     assert config.watch_mode.auto_approve_in_watch is True

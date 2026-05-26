@@ -7,7 +7,6 @@ import pytest
 
 from automaxfix.cli import main
 
-
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
 
@@ -22,7 +21,9 @@ def test_cli_scan_creates_tickets_from_jest_output(tmp_path: Path, monkeypatch) 
     assert payload["source"] == "jest"
 
 
-def test_cli_scan_supports_generic_format_selection(tmp_path: Path, monkeypatch) -> None:
+def test_cli_scan_supports_generic_format_selection(
+    tmp_path: Path, monkeypatch
+) -> None:
     monkeypatch.chdir(tmp_path)
     main(["init"])
     output_path = FIXTURES / "generic" / "mixed.log"

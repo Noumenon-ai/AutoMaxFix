@@ -56,7 +56,9 @@ def ticket_content_checksum(payload: dict) -> str:
     import json
 
     filtered = {key: value for key, value in payload.items() if key != "content_sha256"}
-    encoded = json.dumps(filtered, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    encoded = json.dumps(filtered, sort_keys=True, separators=(",", ":")).encode(
+        "utf-8"
+    )
     return hashlib.sha256(encoded).hexdigest()
 
 

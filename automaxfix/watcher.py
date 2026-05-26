@@ -70,6 +70,7 @@ class _WatchConsole:
             self._output.write("\n")
         self._output.flush()
 
+
 class _StopController:
     def __init__(self) -> None:
         self.stop_requested = False
@@ -84,14 +85,18 @@ def _validate_watch_request(config: Config, test_runner: str) -> None:
         raise WatchError("Watch mode is disabled by config.")
     if test_runner not in config.watch_mode.allowed_runners:
         allowed = ", ".join(config.watch_mode.allowed_runners) or "(none)"
-        raise WatchError(f"Test runner {test_runner!r} is not allowed by watch_mode.allowed_runners: {allowed}")
+        raise WatchError(
+            f"Test runner {test_runner!r} is not allowed by watch_mode.allowed_runners: {allowed}"
+        )
 
 
 def _timestamp(now: float) -> str:
     return time.strftime("%H:%M:%S", time.localtime(now))
 
 
-def _capture_path(logs_dir: Path, test_runner: str, poll_number: int, now: float) -> Path:
+def _capture_path(
+    logs_dir: Path, test_runner: str, poll_number: int, now: float
+) -> Path:
     stamp = time.strftime("%Y%m%d-%H%M%S", time.localtime(now))
     return logs_dir / f"watch_{test_runner}_{stamp}_{poll_number:04d}.log"
 
@@ -141,7 +146,9 @@ def _build_approval_callback(
 
         if config.watch_mode.auto_approve_in_watch:
             summary.approvals_granted += 1
-            console.line(f"[watch] auto-approve enabled for {ticket_id}; applying patch.")
+            console.line(
+                f"[watch] auto-approve enabled for {ticket_id}; applying patch."
+            )
             return ApprovalDecision(
                 approved=True,
                 requires_confirmation=False,
@@ -197,14 +204,18 @@ def watch_loop(
 ) -> WatchSummary:
     runtime = runtime or WatchRuntime()
     _validate_watch_request(config, test_runner)
-    effective_interval = interval if interval is not None else config.watch_mode.default_interval
+    effective_interval = (
+        interval if interval is not None else config.watch_mode.default_interval
+    )
     if effective_interval < 1:
         raise WatchError("Watch interval must be >= 1 second.")
 
     console = _WatchConsole(runtime.output)
     summary = WatchSummary()
     stop = _StopController()
-    previous_handler = runtime.signal_module.signal(runtime.signal_module.SIGINT, stop.handle_sigint)
+    previous_handler = runtime.signal_module.signal(
+        runtime.signal_module.SIGINT, stop.handle_sigint
+    )
     logs_dir = ensure_directory(repo_root / ".automaxfix" / "logs")
     approval_callback = _build_approval_callback(
         config=config,
@@ -239,13 +250,19 @@ def watch_loop(
                 created = scan_failures(result.stdout)
                 summary.tickets_created += len(created)
                 if not created:
-                    console.line(f"[watch] no failing tests parsed for {test_runner}; continuing.")
+                    console.line(
+                        f"[watch] no failing tests parsed for {test_runner}; continuing."
+                    )
                 else:
                     ticket, ticket_path = created[0]
                     summary.last_ticket_path = ticket_path
-                    console.line(f"[watch] created {len(created)} ticket(s); running {ticket.id}.")
+                    console.line(
+                        f"[watch] created {len(created)} ticket(s); running {ticket.id}."
+                    )
                     if len(created) > 1:
-                        console.line("[watch] additional tickets were left queued for manual review.")
+                        console.line(
+                            "[watch] additional tickets were left queued for manual review."
+                        )
                     summary.patch_runs += 1
                     run_ticket(ticket_path, approval_callback)
 

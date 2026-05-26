@@ -31,7 +31,9 @@ def test_workspace_backup_and_apply_patch(tmp_path: Path) -> None:
     status = require_git_repo(repo_root)
     assert status.is_git_repo is True
 
-    backup_path = create_pre_patch_backup(repo_root, repo_root / ".automaxfix" / "reports", "AMF-20260520-001")
+    backup_path = create_pre_patch_backup(
+        repo_root, repo_root / ".automaxfix" / "reports", "AMF-20260520-001"
+    )
     assert backup_path.exists()
     artifact_path = write_patch_artifact(
         repo_root / ".automaxfix" / "logs",
@@ -39,8 +41,9 @@ def test_workspace_backup_and_apply_patch(tmp_path: Path) -> None:
         build_fix_patch(),
         github_actions_run_url="https://github.com/example/project/actions/runs/123",
     )
-    assert "GitHub Actions run: https://github.com/example/project/actions/runs/123" in artifact_path.read_text(
-        encoding="utf-8"
+    assert (
+        "GitHub Actions run: https://github.com/example/project/actions/runs/123"
+        in artifact_path.read_text(encoding="utf-8")
     )
 
     apply_patch(repo_root, build_fix_patch())

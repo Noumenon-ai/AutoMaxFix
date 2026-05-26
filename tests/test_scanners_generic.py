@@ -4,7 +4,6 @@ from pathlib import Path
 
 from automaxfix.scanners.generic import scan
 
-
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "generic"
 
 
@@ -18,7 +17,9 @@ def test_generic_scanner_extracts_file_line_messages() -> None:
     assert records[0].test_id == "src/service.py:42"
     assert records[0].file_path == "src/service.py"
     assert records[0].line == 42
-    assert records[0].error_summary == "AssertionError: expected cached value to refresh"
+    assert (
+        records[0].error_summary == "AssertionError: expected cached value to refresh"
+    )
 
 
 def test_generic_scanner_normalizes_absolute_paths_inside_repo_root() -> None:

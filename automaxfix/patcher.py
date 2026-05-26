@@ -7,9 +7,13 @@ from .safety import validate_edit_path, validate_patch_proposal
 from .utils import ensure_directory, truncate
 
 
-def inspect_repo(ticket: Ticket, repo_root: Path, *, preview_chars: int = 600) -> RepoContext:
+def inspect_repo(
+    ticket: Ticket, repo_root: Path, *, preview_chars: int = 600
+) -> RepoContext:
     top_level_entries = sorted(
-        item.name for item in repo_root.iterdir() if item.name not in {".automaxfix", ".git"}
+        item.name
+        for item in repo_root.iterdir()
+        if item.name not in {".automaxfix", ".git"}
     )
     suspected_files: list[dict[str, str]] = []
     for raw_path in ticket.suspected_files[:6]:
@@ -35,11 +39,15 @@ def inspect_repo(ticket: Ticket, repo_root: Path, *, preview_chars: int = 600) -
 def build_patch_plan(ticket: Ticket, repo_context: RepoContext) -> list[str]:
     plan = [f"Investigate ticket {ticket.id}: {ticket.title}."]
     if ticket.suspected_files:
-        plan.append("Inspect suspected files: " + ", ".join(ticket.suspected_files) + ".")
+        plan.append(
+            "Inspect suspected files: " + ", ".join(ticket.suspected_files) + "."
+        )
     else:
         plan.append("Inspect failing tests and likely touched modules to narrow scope.")
     if ticket.reproduction_test:
-        plan.append(f"Create or confirm reproduction test at {ticket.reproduction_test}.")
+        plan.append(
+            f"Create or confirm reproduction test at {ticket.reproduction_test}."
+        )
     plan.append("Generate a minimal patch that changes one bug at a time.")
     plan.append("Run targeted tests first, then regression.")
     if not repo_context.suspected_files:
@@ -58,7 +66,9 @@ def merge_reproduction_into_patch(
     existing_paths = {item.path for item in proposal.files}
     files = list(proposal.files)
     if reproduction_path not in existing_paths:
-        files.insert(0, PatchFileChange(path=reproduction_path, content=reproduction_content))
+        files.insert(
+            0, PatchFileChange(path=reproduction_path, content=reproduction_content)
+        )
     return PatchProposal(summary=proposal.summary, files=files)
 
 

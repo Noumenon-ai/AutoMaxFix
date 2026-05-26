@@ -3,7 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from automaxfix.cli import main
-from automaxfix.models import AgentAttempt, CommandResult, StrategyName, TicketStrategyAttempt
+from automaxfix.models import (
+    AgentAttempt,
+    CommandResult,
+    StrategyName,
+    TicketStrategyAttempt,
+)
 from automaxfix.ticket import create_bug_ticket, load_ticket, save_ticket
 from tests.helpers import build_fix_patch, create_phase2_repo
 
@@ -24,7 +29,15 @@ def _install_retry_stubs(monkeypatch):
         attempt_number: int = 1,
         validation_errors=None,
     ) -> AgentAttempt:
-        del repo_root, logs_dir, config, ticket, repo_context, command_override, validation_errors
+        del (
+            repo_root,
+            logs_dir,
+            config,
+            ticket,
+            repo_context,
+            command_override,
+            validation_errors,
+        )
         strategies_seen.append(strategy)
         return AgentAttempt(
             attempt_number=attempt_number,
@@ -35,9 +48,13 @@ def _install_retry_stubs(monkeypatch):
             duration_seconds=0.01,
         )
 
-    def fake_run_targeted_test(config, repo_root: Path, test_file: str) -> CommandResult:
+    def fake_run_targeted_test(
+        config, repo_root: Path, test_file: str
+    ) -> CommandResult:
         del config
-        fixed = "return a + b" in (repo_root / "calculator.py").read_text(encoding="utf-8")
+        fixed = "return a + b" in (repo_root / "calculator.py").read_text(
+            encoding="utf-8"
+        )
         return CommandResult(
             command=f"pytest {test_file} -v",
             returncode=0 if fixed else 1,
@@ -58,7 +75,9 @@ def _install_retry_stubs(monkeypatch):
 
     monkeypatch.setattr("automaxfix.cli.run_agent_patch", fake_run_agent_patch)
     monkeypatch.setattr("automaxfix.cli.run_targeted_test", fake_run_targeted_test)
-    monkeypatch.setattr("automaxfix.cli.run_regression_suite", fake_run_regression_suite)
+    monkeypatch.setattr(
+        "automaxfix.cli.run_regression_suite", fake_run_regression_suite
+    )
     return strategies_seen
 
 
@@ -102,7 +121,9 @@ def test_strategy_memo_persists_across_reruns(tmp_path: Path, monkeypatch) -> No
         == 0
     )
     first_run = load_ticket(ticket_path)
-    assert [item.strategy for item in first_run.strategy_memo.attempts] == [StrategyName.MINIMAL]
+    assert [item.strategy for item in first_run.strategy_memo.attempts] == [
+        StrategyName.MINIMAL
+    ]
 
     assert (
         main(

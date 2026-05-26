@@ -3,7 +3,14 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-from .models import AgentAttempt, AgentRunResult, Config, RepoContext, StrategyName, Ticket
+from .models import (
+    AgentAttempt,
+    AgentRunResult,
+    Config,
+    RepoContext,
+    StrategyName,
+    Ticket,
+)
 from .prompt_templates import build_claude_prompt, build_codex_prompt
 from .safety import SafetyError, split_safe_command
 from .utils import ensure_directory, run_command
@@ -130,7 +137,9 @@ def run_agent_patch(
 
     command = command_override or config.agent.command or _default_agent_command(mode)
     try:
-        argv = _build_agent_argv(mode=mode, command=command, prompt_file=prompt_path, prompt_text=prompt_text)
+        argv = _build_agent_argv(
+            mode=mode, command=command, prompt_file=prompt_path, prompt_text=prompt_text
+        )
     except SafetyError as exc:
         raise AgentRunError(str(exc)) from exc
 
@@ -141,7 +150,9 @@ def run_agent_patch(
         pythonpath_root=repo_root,
     )
     if not result.passed:
-        raise AgentRunError(result.stderr.strip() or result.stdout.strip() or "Agent command failed.")
+        raise AgentRunError(
+            result.stderr.strip() or result.stdout.strip() or "Agent command failed."
+        )
 
     output_file = logs_dir / f"{ticket.id.lower()}_attempt_{attempt_number}.diff"
     output_file.write_text(result.stdout, encoding="utf-8")

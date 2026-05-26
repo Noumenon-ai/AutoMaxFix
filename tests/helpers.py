@@ -15,7 +15,9 @@ def run_checked(argv: list[str], *, cwd: Path) -> None:
 def create_phase2_repo(tmp_path: Path) -> tuple[Path, Path]:
     repo_root = tmp_path / "repo"
     repo_root.mkdir()
-    (repo_root / ".gitignore").write_text(".automaxfix/\n__pycache__/\n", encoding="utf-8")
+    (repo_root / ".gitignore").write_text(
+        ".automaxfix/\n__pycache__/\n", encoding="utf-8"
+    )
     (repo_root / "calculator.py").write_text(
         "def add(a, b):\n    return a - b\n",
         encoding="utf-8",
@@ -32,7 +34,10 @@ def create_phase2_repo(tmp_path: Path) -> tuple[Path, Path]:
     run_checked(["git", "init"], cwd=repo_root)
     run_checked(["git", "config", "user.email", "tests@example.com"], cwd=repo_root)
     run_checked(["git", "config", "user.name", "AutoMaxFix Tests"], cwd=repo_root)
-    run_checked(["git", "add", ".gitignore", "calculator.py", "tests/test_calculator.py"], cwd=repo_root)
+    run_checked(
+        ["git", "add", ".gitignore", "calculator.py", "tests/test_calculator.py"],
+        cwd=repo_root,
+    )
     run_checked(["git", "commit", "-m", "initial"], cwd=repo_root)
 
     automaxfix_dir = ensure_directory(repo_root / ".automaxfix")

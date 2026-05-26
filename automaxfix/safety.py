@@ -60,14 +60,20 @@ def _path_matches_prefix(relative_path: Path, raw_prefix: str) -> bool:
 
 def validate_edit_path(repo_root: Path, config: Config, raw_path: str) -> Path:
     candidate = Path(raw_path)
-    resolved = candidate.resolve() if candidate.is_absolute() else (repo_root / candidate).resolve()
+    resolved = (
+        candidate.resolve()
+        if candidate.is_absolute()
+        else (repo_root / candidate).resolve()
+    )
     _ensure_inside_repo(repo_root, resolved)
     relative_path = resolved.relative_to(repo_root)
     if _is_sensitive_path(relative_path):
         raise SafetyError(f"Editing {relative_path} is blocked")
     if any(_path_matches_prefix(relative_path, item) for item in config.blocked_paths):
         raise SafetyError(f"Editing {relative_path} is blocked by config")
-    if not any(_path_matches_prefix(relative_path, item) for item in config.allowed_paths):
+    if not any(
+        _path_matches_prefix(relative_path, item) for item in config.allowed_paths
+    ):
         raise SafetyError(f"Editing {relative_path} is outside allowed_paths")
     return resolved
 

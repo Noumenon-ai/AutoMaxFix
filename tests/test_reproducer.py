@@ -3,7 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from automaxfix.models import RepoContext, Ticket
-from automaxfix.reproducer import describe_reproduction_step, suggest_reproduction_test_path
+from automaxfix.reproducer import (
+    describe_reproduction_step,
+    suggest_reproduction_test_path,
+)
 
 
 def _ticket() -> Ticket:

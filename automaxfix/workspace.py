@@ -64,7 +64,9 @@ def write_patch_artifact(
     return patch_path
 
 
-def _apply_patch_text(repo_root: Path, patch_text: str, *, reverse: bool = False) -> None:
+def _apply_patch_text(
+    repo_root: Path, patch_text: str, *, reverse: bool = False
+) -> None:
     with tempfile.NamedTemporaryFile(
         mode="w", encoding="utf-8", suffix=".diff", delete=False
     ) as handle:

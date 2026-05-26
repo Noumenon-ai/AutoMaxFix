@@ -4,7 +4,6 @@ from pathlib import Path
 
 from automaxfix.scanners.mocha import scan
 
-
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "mocha"
 
 
