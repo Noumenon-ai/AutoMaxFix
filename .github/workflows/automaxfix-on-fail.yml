@@ -105,7 +105,7 @@ jobs:
       - name: Upload AutoMaxFix report
         id: upload-report
         if: ${{ steps.automaxfix.outputs['report-path'] != '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.automaxfix.outputs['ticket-id'] != '' && format('automaxfix-report-{0}', steps.automaxfix.outputs['ticket-id']) || 'automaxfix-report' }}
           path: ${{ steps.automaxfix.outputs['report-path'] }}
