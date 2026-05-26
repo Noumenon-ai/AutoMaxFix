@@ -72,7 +72,9 @@ _PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ),
     (
         "jwt",
-        re.compile(r"\beyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\b"),
+        re.compile(
+            r"\beyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\b"
+        ),
     ),
     (
         "private_key_block",

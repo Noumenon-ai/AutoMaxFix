@@ -6,7 +6,6 @@ from pathlib import Path
 from ..models import FailureRecord
 from ._common import normalize_file_path
 
-
 _GENERIC_PATTERN = re.compile(
     r"(?P<path>(?:[A-Za-z]:)?(?:[^\s:()]+[/\\])*[^\s:()]+\.[A-Za-z0-9_]+)"
     r":(?P<line>\d+)(?::(?P<column>\d+))?:\s*(?P<message>.+)"

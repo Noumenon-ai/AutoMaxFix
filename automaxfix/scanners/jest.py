@@ -6,7 +6,6 @@ from pathlib import Path
 from ..models import FailureRecord
 from ._common import LOCATION_PATTERN, first_summary_line, normalize_file_path
 
-
 _FAIL_PATTERN = re.compile(r"^FAIL\s+(.+)$", re.MULTILINE)
 _TEST_PATTERN = re.compile(r"^\s*●\s+(.+)$", re.MULTILINE)
 _SKIP_PATTERN = re.compile(r"^[>\|\^+\-\d\s]+$")
@@ -29,7 +28,9 @@ def _summary_from_block(block: str) -> str:
     return summary or "Test failed."
 
 
-def _preferred_location(block: str, file_path: str, repo_root: Path) -> tuple[str | None, int | None]:
+def _preferred_location(
+    block: str, file_path: str, repo_root: Path
+) -> tuple[str | None, int | None]:
     candidates = [
         (normalize_file_path(match.group("path"), repo_root), int(match.group("line")))
         for match in LOCATION_PATTERN.finditer(block)
@@ -49,7 +50,9 @@ def scan(text: str, repo_root: Path) -> list[FailureRecord]:
     records: list[FailureRecord] = []
     matches = list(_FAIL_PATTERN.finditer(text))
     for index, match in enumerate(matches):
-        block_end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        block_end = (
+            matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        )
         block = text[match.start() : block_end].strip()
         file_path = _fail_file_path(match.group(1), repo_root)
         test_matches = list(_TEST_PATTERN.finditer(block))

@@ -127,7 +127,9 @@ class WatchConfig:
         return cls(
             enabled=bool(payload.get("enabled", True)),
             default_interval=max(1, int(payload.get("default_interval", 30))),
-            allowed_runners=list(dict.fromkeys(str(item) for item in raw_allowed_runners)),
+            allowed_runners=list(
+                dict.fromkeys(str(item) for item in raw_allowed_runners)
+            ),
             auto_approve_in_watch=auto_approve_in_watch,
         )
 
@@ -202,24 +204,32 @@ class Config:
                 )
             ],
             ci_mode=ci_mode,
-            require_reproduction_test=bool(payload.get("require_reproduction_test", True)),
-            agent=AgentConfig.from_dict(agent_payload if isinstance(agent_payload, dict) else None),
+            require_reproduction_test=bool(
+                payload.get("require_reproduction_test", True)
+            ),
+            agent=AgentConfig.from_dict(
+                agent_payload if isinstance(agent_payload, dict) else None
+            ),
             patch=PatchConfig.from_dict(
                 patch_payload
                 if isinstance(patch_payload, dict)
                 else {"max_files_changed": payload.get("max_files_changed", 8)}
             ),
             approval=ApprovalConfig.from_dict(
-                approval_payload
-                if isinstance(approval_payload, dict)
-                else (
-                    {"require_human_approval": payload["require_human_approval"]}
-                    if "require_human_approval" in payload
-                    else None
+                (
+                    approval_payload
+                    if isinstance(approval_payload, dict)
+                    else (
+                        {"require_human_approval": payload["require_human_approval"]}
+                        if "require_human_approval" in payload
+                        else None
+                    )
                 ),
                 default_require_human_approval=approval_default,
             ),
-            watch_mode=WatchConfig.from_dict(watch_payload if isinstance(watch_payload, dict) else None),
+            watch_mode=WatchConfig.from_dict(
+                watch_payload if isinstance(watch_payload, dict) else None
+            ),
         )
 
 
@@ -257,7 +267,9 @@ class TicketStrategyAttempt:
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "TicketStrategyAttempt":
         return cls(
-            strategy=_strategy_name_from_value(payload.get("strategy", StrategyName.MINIMAL.value)),
+            strategy=_strategy_name_from_value(
+                payload.get("strategy", StrategyName.MINIMAL.value)
+            ),
             reason=str(payload.get("reason", "")),
             agent_used=str(payload.get("agent_used", "")),
             duration_sec=float(payload.get("duration_sec", 0.0)),
@@ -355,7 +367,9 @@ class Ticket:
                 else None
             ),
             tests_run=[str(item) for item in payload.get("tests_run", [])],
-            result=str(payload["result"]) if payload.get("result") is not None else None,
+            result=(
+                str(payload["result"]) if payload.get("result") is not None else None
+            ),
             strategy_memo=TicketStrategyMemo.from_dict(
                 payload["strategy_memo"]
                 if isinstance(payload.get("strategy_memo"), dict)
@@ -399,13 +413,18 @@ class PatchProposal:
     files: list[PatchFileChange] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"summary": self.summary, "files": [item.to_dict() for item in self.files]}
+        return {
+            "summary": self.summary,
+            "files": [item.to_dict() for item in self.files],
+        }
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "PatchProposal":
         return cls(
             summary=str(payload.get("summary", "")),
-            files=[PatchFileChange.from_dict(item) for item in payload.get("files", [])],
+            files=[
+                PatchFileChange.from_dict(item) for item in payload.get("files", [])
+            ],
         )
 
 

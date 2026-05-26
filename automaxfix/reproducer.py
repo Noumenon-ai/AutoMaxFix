@@ -10,7 +10,10 @@ def suggest_reproduction_test_path(ticket: Ticket) -> str:
 
 
 def describe_reproduction_step(ticket: Ticket, repo_context: RepoContext) -> str:
-    suspected = ", ".join(item["path"] for item in repo_context.suspected_files) or "unknown files"
+    suspected = (
+        ", ".join(item["path"] for item in repo_context.suspected_files)
+        or "unknown files"
+    )
     return (
         f"Create or confirm a targeted reproduction test for ticket {ticket.id}. "
         f"Suggested location: {ticket.reproduction_test or suggest_reproduction_test_path(ticket)}. "

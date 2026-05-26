@@ -23,7 +23,9 @@ def ensure_directory(path: Path) -> Path:
 
 def write_json(path: Path, payload: dict[str, Any]) -> None:
     ensure_directory(path.parent)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(payload, indent=2, sort_keys=False) + "\n", encoding="utf-8"
+    )
 
 
 def read_json(path: Path) -> dict[str, Any]:

@@ -13,7 +13,19 @@ def test_phase2_cli_run_manual_patch_passes(tmp_path: Path, monkeypatch) -> None
     patch_path.write_text(build_fix_patch(), encoding="utf-8")
 
     monkeypatch.chdir(repo_root)
-    assert main(["run", "--ticket", str(ticket_path), "--patch-file", str(patch_path), "--yes"]) == 0
+    assert (
+        main(
+            [
+                "run",
+                "--ticket",
+                str(ticket_path),
+                "--patch-file",
+                str(patch_path),
+                "--yes",
+            ]
+        )
+        == 0
+    )
 
     ticket = load_ticket(ticket_path)
     assert ticket.status == "passed"
@@ -34,9 +46,22 @@ def test_phase2_cli_run_requires_reproduction(tmp_path: Path, monkeypatch) -> No
     save_ticket(ticket, repo_root / ".automaxfix" / "tickets")
 
     monkeypatch.chdir(repo_root)
-    assert main(["run", "--ticket", str(ticket_path), "--patch-file", str(patch_path), "--yes"]) == 0
+    assert (
+        main(
+            [
+                "run",
+                "--ticket",
+                str(ticket_path),
+                "--patch-file",
+                str(patch_path),
+                "--yes",
+            ]
+        )
+        == 0
+    )
 
     report = sorted((repo_root / ".automaxfix" / "reports").glob("*.md"))[-1]
-    assert "No reproduction test found. Create reproduction test before patching." in report.read_text(
-        encoding="utf-8"
+    assert (
+        "No reproduction test found. Create reproduction test before patching."
+        in report.read_text(encoding="utf-8")
     )

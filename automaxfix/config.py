@@ -87,7 +87,9 @@ def _tokenize(text: str) -> list[tuple[int, int, str]]:
     return tokens
 
 
-def _parse_list(tokens: list[tuple[int, int, str]], index: int, indent: int) -> tuple[list[object], int]:
+def _parse_list(
+    tokens: list[tuple[int, int, str]], index: int, indent: int
+) -> tuple[list[object], int]:
     items: list[object] = []
     while index < len(tokens):
         lineno, line_indent, content = tokens[index]

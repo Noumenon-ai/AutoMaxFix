@@ -5,7 +5,6 @@ from pathlib import Path
 
 from ..models import FailureRecord
 
-
 _FAILED_PATTERN = re.compile(r"^FAILED\s+([^\s]+)\s+-\s+(.+)$", re.MULTILINE)
 _ERROR_PATTERN = re.compile(r"^ERROR\s+([^\s]+)\s+-\s+(.+)$", re.MULTILINE)
 

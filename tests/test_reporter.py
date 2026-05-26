@@ -65,4 +65,7 @@ def test_write_report_and_fetch_latest(tmp_path: Path) -> None:
     assert "AutoMaxFix Phase 3 Report" in contents
     assert "Agent used: manual_patch_file" in contents
     assert "Attempt count: 2" in contents
-    assert "GitHub Actions run: https://github.com/example/project/actions/runs/123" in contents
+    assert (
+        "GitHub Actions run: https://github.com/example/project/actions/runs/123"
+        in contents
+    )

@@ -20,7 +20,9 @@ def test_manual_patch_file_mode_loads_diff(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("mode", ["codex_cli", "claude_cli"])
-def test_agent_runner_executes_external_cli_and_reads_prompt(tmp_path: Path, mode: str) -> None:
+def test_agent_runner_executes_external_cli_and_reads_prompt(
+    tmp_path: Path, mode: str
+) -> None:
     repo_root, ticket_path = create_phase2_repo(tmp_path)
     ticket = load_ticket(ticket_path)
     repo_context = inspect_repo(ticket, repo_root)
@@ -39,7 +41,9 @@ def test_agent_runner_executes_external_cli_and_reads_prompt(tmp_path: Path, mod
         "+    return a + b\\n''')\n",
         encoding="utf-8",
     )
-    config = Config(agent=AgentConfig(mode=mode, command=f"python3 {script_path} {{prompt_file}}"))
+    config = Config(
+        agent=AgentConfig(mode=mode, command=f"python3 {script_path} {{prompt_file}}")
+    )
 
     result = run_agent_patch(
         mode=mode,

@@ -36,7 +36,9 @@ def _render_attempts(attempts: list[AgentAttempt]) -> str:
         validation = "valid diff" if attempt.is_valid_diff else "invalid diff"
         retryable = "retryable" if attempt.retryable_invalid_diff else "not retryable"
         command = attempt.command or "manual patch file"
-        output_file = str(attempt.output_file) if attempt.output_file is not None else "n/a"
+        output_file = (
+            str(attempt.output_file) if attempt.output_file is not None else "n/a"
+        )
         strategy = attempt.strategy.value if attempt.strategy is not None else "n/a"
         lines.append(
             f"- attempt {attempt.attempt_number}: strategy={strategy}, {validation}, {retryable}, command={command}, output={output_file}"
@@ -65,7 +67,9 @@ def build_report_markdown(
     next_step: str,
     attempts: list[AgentAttempt],
 ) -> str:
-    changed = "\n".join(f"- {item}" for item in files_changed) if files_changed else "- None"
+    changed = (
+        "\n".join(f"- {item}" for item in files_changed) if files_changed else "- None"
+    )
     run_url_line = ""
     if ticket.github_actions_run_url:
         run_url_line = f"GitHub Actions run: {ticket.github_actions_run_url}\n"

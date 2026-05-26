@@ -6,8 +6,13 @@ from .models import Config, RepoContext, StrategyName, Ticket
 
 
 def _render_repo_context(repo_context: RepoContext) -> str:
-    repo_entries = "\n".join(f"- {item}" for item in repo_context.top_level_entries) or "- none"
-    suspected = "\n".join(f"- {item['path']}" for item in repo_context.suspected_files) or "- unknown"
+    repo_entries = (
+        "\n".join(f"- {item}" for item in repo_context.top_level_entries) or "- none"
+    )
+    suspected = (
+        "\n".join(f"- {item['path']}" for item in repo_context.suspected_files)
+        or "- unknown"
+    )
     return f"Repo snapshot:\n{repo_entries}\n\nSuspected files:\n{suspected}"
 
 

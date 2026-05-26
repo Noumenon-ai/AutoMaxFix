@@ -6,7 +6,6 @@ from pathlib import Path
 from ..models import FailureRecord
 from ._common import extract_location, first_summary_line, normalize_file_path
 
-
 _FAIL_PATTERN = re.compile(r"^--- FAIL: (\S+)(?: \([^)]+\))?$", re.MULTILINE)
 _DETAIL_PATTERN = re.compile(
     r"^\s+(?P<path>[^\s:][^:]*\.[A-Za-z0-9_]+):(?P<line>\d+):\s*(?P<message>.+)$",
@@ -18,7 +17,9 @@ def scan(text: str, repo_root: Path) -> list[FailureRecord]:
     records: list[FailureRecord] = []
     matches = list(_FAIL_PATTERN.finditer(text))
     for index, match in enumerate(matches):
-        block_end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        block_end = (
+            matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        )
         block = text[match.start() : block_end].strip()
         detail_match = _DETAIL_PATTERN.search(block)
         if detail_match is not None:

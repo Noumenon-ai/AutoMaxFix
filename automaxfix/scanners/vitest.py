@@ -6,7 +6,6 @@ from pathlib import Path
 from ..models import FailureRecord
 from ._common import extract_location, first_summary_line, normalize_file_path
 
-
 _FAIL_PATTERN = re.compile(r"^\s*FAIL\s+(.+)$", re.MULTILINE)
 _SKIP_PATTERN = re.compile(r"^[>\|\^+\-\d\s]+$")
 
@@ -35,7 +34,9 @@ def scan(text: str, repo_root: Path) -> list[FailureRecord]:
         descriptor = match.group(1).strip()
         if "." not in Path(descriptor.split(" > ", 1)[0]).name:
             continue
-        block_end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        block_end = (
+            matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        )
         block = text[match.start() : block_end].strip()
         file_path, test_id = _split_descriptor(descriptor, repo_root)
         location_file, line = extract_location(block, repo_root)

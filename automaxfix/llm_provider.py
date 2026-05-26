@@ -14,7 +14,9 @@ class ProviderError(RuntimeError):
 
 class LLMProvider(ABC):
     @abstractmethod
-    def generate_patch(self, ticket: Ticket, repo_context: RepoContext) -> PatchProposal:
+    def generate_patch(
+        self, ticket: Ticket, repo_context: RepoContext
+    ) -> PatchProposal:
         raise NotImplementedError
 
     @abstractmethod
@@ -36,7 +38,9 @@ class MockProvider(LLMProvider):
         )
         self._reproduction_text = reproduction_text
 
-    def generate_patch(self, ticket: Ticket, repo_context: RepoContext) -> PatchProposal:
+    def generate_patch(
+        self, ticket: Ticket, repo_context: RepoContext
+    ) -> PatchProposal:
         del ticket, repo_context
         return self._patch_proposal
 
@@ -57,7 +61,9 @@ class FileProvider(LLMProvider):
         self.patch_file = patch_file
         self.reproduction_file = reproduction_file
 
-    def generate_patch(self, ticket: Ticket, repo_context: RepoContext) -> PatchProposal:
+    def generate_patch(
+        self, ticket: Ticket, repo_context: RepoContext
+    ) -> PatchProposal:
         del ticket, repo_context
         if not self.patch_file.exists():
             raise ProviderError(f"Patch file not found: {self.patch_file}")
@@ -71,7 +77,9 @@ class FileProvider(LLMProvider):
         if self.reproduction_file is None:
             return None
         if not self.reproduction_file.exists():
-            raise ProviderError(f"Reproduction file not found: {self.reproduction_file}")
+            raise ProviderError(
+                f"Reproduction file not found: {self.reproduction_file}"
+            )
         return self.reproduction_file.read_text(encoding="utf-8")
 
 
@@ -99,5 +107,7 @@ def load_provider_from_environment(base_dir: Path) -> LLMProvider | None:
         proposal = PatchProposal(summary="Mock patch proposal", files=[])
         if patch_json:
             proposal = PatchProposal.from_dict(json.loads(patch_json))
-        return MockProvider(patch_proposal=proposal, reproduction_text=repro_text or None)
+        return MockProvider(
+            patch_proposal=proposal, reproduction_text=repro_text or None
+        )
     raise ProviderError(f"Unsupported provider kind: {provider_kind}")

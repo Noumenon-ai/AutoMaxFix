@@ -68,7 +68,9 @@ def _is_test_path(path: str) -> bool:
     return bool(pure.parts) and pure.parts[0] == "tests"
 
 
-def validate_patch_text(patch_text: str, *, repo_root: Path, config: Config) -> PatchValidationResult:
+def validate_patch_text(
+    patch_text: str, *, repo_root: Path, config: Config
+) -> PatchValidationResult:
     errors: list[str] = []
     retryable_invalid_diff = False
 
@@ -133,7 +135,8 @@ def validate_patch_text(patch_text: str, *, repo_root: Path, config: Config) -> 
 
     return PatchValidationResult(
         valid=not errors,
-        retryable_invalid_diff=retryable_invalid_diff and not any(
+        retryable_invalid_diff=retryable_invalid_diff
+        and not any(
             error.startswith("Editing ")
             or error.startswith("Creating new ")
             or error.startswith("Deleting files ")
