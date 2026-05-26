@@ -1229,9 +1229,6 @@ def _backup_command(
     import tarfile
     from datetime import datetime, timezone
 
-    from .config import load_config
-
-    config = load_config(base_dir, config_path)
     state_dir = base_dir / ".automaxfix"
     if not state_dir.is_dir():
         print("ERROR: no .automaxfix/ directory to back up")
