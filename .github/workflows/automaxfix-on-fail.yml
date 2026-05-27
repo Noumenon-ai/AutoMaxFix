@@ -53,7 +53,7 @@ jobs:
 
       - name: Download failure log artifact
         if: ${{ inputs['test-output-artifact'] != '' }}
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ inputs['test-output-artifact'] }}
           path: ${{ github.workspace }}
