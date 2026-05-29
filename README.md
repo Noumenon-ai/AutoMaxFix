@@ -1,7 +1,8 @@
 # AutoMaxFix
 
+> AutoMaxFix is the boring opposite of an autonomous agent. One ticket, one patch attempt, one approval, one report. Then it stops.
+
 [![CI](https://github.com/Noumenon-ai/AutoMaxFix/actions/workflows/ci.yml/badge.svg)](https://github.com/Noumenon-ai/AutoMaxFix/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/automaxfix.svg)](https://pypi.org/project/automaxfix/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 AutoMaxFix is a command-line tool for controlled patch repair in
