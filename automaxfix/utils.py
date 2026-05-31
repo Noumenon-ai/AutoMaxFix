@@ -11,6 +11,30 @@ from typing import Any
 
 from .models import CommandResult
 
+_SAFE_ENV_VARS = frozenset(
+    {
+        "PATH",
+        "HOME",
+        "USER",
+        "LOGNAME",
+        "SHELL",
+        "LANG",
+        "LC_ALL",
+        "LC_CTYPE",
+        "TZ",
+        "TERM",
+        "PYTHONPATH",
+        "PYTHONHASHSEED",
+        "PYTHONUNBUFFERED",
+        "TMPDIR",
+        "TEMP",
+        "TMP",
+        "EDITOR",
+        "PAGER",
+        "HOSTNAME",
+    }
+)
+
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
@@ -100,8 +124,14 @@ def run_command(
     timeout_seconds: int | None = None,
     env: dict[str, str] | None = None,
     pythonpath_root: Path | None = None,
+    allow_full_env: bool = True,
 ) -> CommandResult:
-    merged_env = os.environ.copy()
+    if allow_full_env:
+        merged_env = os.environ.copy()
+    else:
+        merged_env = {
+            key: value for key, value in os.environ.items() if key in _SAFE_ENV_VARS
+        }
     if env:
         merged_env.update(env)
     if pythonpath_root is not None:

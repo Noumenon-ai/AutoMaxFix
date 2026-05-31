@@ -51,3 +51,58 @@ def test_patch_parser_blocks_new_source_files_by_default(tmp_path: Path) -> None
     )
     assert result.valid is False
     assert any("Creating new source files is blocked" in item for item in result.errors)
+
+
+def test_validate_patch_rejects_modifying_reproduction_test(tmp_path: Path) -> None:
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    repro_test = tests_dir / "test_repro.py"
+    repro_test.write_text(
+        "def test_repro():\n    assert 2 + 2 == 4\n",
+        encoding="utf-8",
+    )
+    patch = """diff --git a/tests/test_repro.py b/tests/test_repro.py
+--- a/tests/test_repro.py
++++ b/tests/test_repro.py
+@@ -1,2 +1,2 @@
+ def test_repro():
+-    assert 2 + 2 == 4
++    assert True
+"""
+    result = validate_patch_text(
+        patch,
+        repo_root=tmp_path,
+        config=Config(),
+        reproduction_test="tests/test_repro.py",
+    )
+    assert result.valid is False
+    assert any("reproduction test" in item for item in result.errors)
+
+
+def test_validate_patch_allows_different_test_file(tmp_path: Path) -> None:
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "test_repro.py").write_text(
+        "def test_repro():\n    assert 2 + 2 == 4\n",
+        encoding="utf-8",
+    )
+    other_test = tests_dir / "test_other.py"
+    other_test.write_text(
+        "def test_other():\n    assert 1 == 1\n",
+        encoding="utf-8",
+    )
+    patch = """diff --git a/tests/test_other.py b/tests/test_other.py
+--- a/tests/test_other.py
++++ b/tests/test_other.py
+@@ -1,2 +1,2 @@
+ def test_other():
+-    assert 1 == 1
++    assert 1 + 1 == 2
+"""
+    result = validate_patch_text(
+        patch,
+        repo_root=tmp_path,
+        config=Config(),
+        reproduction_test="tests/test_repro.py",
+    )
+    assert result.valid is True
