@@ -112,8 +112,7 @@ def contains_dangerous_text(text: str) -> str | None:
     if "chmod" in tokens:
         has_recursive = any(t in ("-r", "-R", "--recursive") for t in tokens)
         has_world = any(
-            t in ("777", "666", "0777", "0666") or t.endswith("777")
-            for t in tokens
+            t in ("777", "666", "0777", "0666") or t.endswith("777") for t in tokens
         )
         if has_recursive and has_world:
             return "chmod recursive world-writable"
