@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Open Source Contributors" }]
-dependencies = []
+dependencies = ["PyYAML>=6.0"]
 
 [project.scripts]
 automaxfix = "automaxfix.cli:main"
