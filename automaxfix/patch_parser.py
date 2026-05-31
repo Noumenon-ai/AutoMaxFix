@@ -69,10 +69,21 @@ def _is_test_path(path: str) -> bool:
 
 
 def validate_patch_text(
-    patch_text: str, *, repo_root: Path, config: Config
+    patch_text: str,
+    *,
+    repo_root: Path,
+    config: Config,
+    reproduction_test: str | None = None,
 ) -> PatchValidationResult:
     errors: list[str] = []
     retryable_invalid_diff = False
+    repro_resolved: Path | None = None
+
+    if reproduction_test:
+        try:
+            repro_resolved = (repo_root / reproduction_test).resolve()
+        except (OSError, ValueError):
+            repro_resolved = None
 
     if config.patch.require_unified_diff and "diff --git " not in patch_text:
         errors.append("Patch is not a unified diff.")
@@ -110,6 +121,15 @@ def validate_patch_text(
         except SafetyError as exc:
             errors.append(str(exc))
             continue
+        if repro_resolved is not None:
+            try:
+                if (repo_root / target_path).resolve() == repro_resolved:
+                    errors.append(
+                        f"Patch cannot modify the reproduction test file: {target_path}"
+                    )
+                    continue
+            except (OSError, ValueError):
+                pass
 
         files_changed.append(target_path)
 
@@ -141,6 +161,7 @@ def validate_patch_text(
             or error.startswith("Creating new ")
             or error.startswith("Deleting files ")
             or error.startswith("Patch modifies a file ")
+            or error.startswith("Patch cannot modify the reproduction test file")
             or "dangerous content" in error
             or "Binary patches" in error
             or "Mode changes" in error

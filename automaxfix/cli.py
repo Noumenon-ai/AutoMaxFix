@@ -330,7 +330,10 @@ def _run_strategy_agent_loop(
             validation_errors=retry_errors,
         )
         validation = validate_patch_text(
-            attempt.stdout, repo_root=repo_root, config=config
+            attempt.stdout,
+            repo_root=repo_root,
+            config=config,
+            reproduction_test=ticket.reproduction_test,
         )
         attempt.is_valid_diff = validation.valid
         attempt.validation_errors = list(validation.errors)
@@ -754,7 +757,10 @@ def _run_command_with_config(
                     stdout=patch_result.patch_text,
                 )
                 validation = validate_patch_text(
-                    final_patch_text, repo_root=repo_root, config=config
+                    final_patch_text,
+                    repo_root=repo_root,
+                    config=config,
+                    reproduction_test=ticket.reproduction_test,
                 )
                 manual_attempt.is_valid_diff = validation.valid
                 manual_attempt.validation_errors = list(validation.errors)

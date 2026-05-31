@@ -12,6 +12,7 @@ from .models import (
     Ticket,
 )
 from .prompt_templates import build_claude_prompt, build_codex_prompt
+from .sanitize import sanitize_text
 from .safety import SafetyError, split_safe_command
 from .utils import ensure_directory, run_command
 
@@ -148,14 +149,18 @@ def run_agent_patch(
         cwd=repo_root,
         timeout_seconds=config.agent.timeout_seconds,
         pythonpath_root=repo_root,
+        allow_full_env=False,
     )
     if not result.passed:
         raise AgentRunError(
             result.stderr.strip() or result.stdout.strip() or "Agent command failed."
         )
 
+    sanitized_stdout = sanitize_text(result.stdout)
+    sanitized_stderr = sanitize_text(result.stderr)
     output_file = logs_dir / f"{ticket.id.lower()}_attempt_{attempt_number}.diff"
-    output_file.write_text(result.stdout, encoding="utf-8")
+    # Keep the in-memory diff raw for validation/apply, but only persist sanitized logs.
+    output_file.write_text(sanitized_stdout, encoding="utf-8")
 
     return AgentAttempt(
         attempt_number=attempt_number,
@@ -166,7 +171,7 @@ def run_agent_patch(
         output_file=output_file,
         command=result.command,
         stdout=result.stdout,
-        stderr=result.stderr,
+        stderr=sanitized_stderr,
         returncode=result.returncode,
         duration_seconds=result.duration_seconds,
     )

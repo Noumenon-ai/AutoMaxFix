@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import shlex
 from pathlib import Path
 
@@ -41,7 +42,7 @@ def _ensure_inside_repo(repo_root: Path, candidate: Path) -> Path:
 def _is_sensitive_path(relative_path: Path) -> bool:
     if any(part == ".git" for part in relative_path.parts):
         return True
-    if relative_path.name.startswith(".env"):
+    if relative_path.name.lower().startswith(".env"):
         return True
     lowered_parts = [part.lower() for part in relative_path.parts]
     if "secrets" in lowered_parts:
@@ -95,11 +96,27 @@ def reject_shell_controls(command: str) -> None:
         raise SafetyError(f"Shell control tokens are blocked: {command}")
 
 
+def _normalize_ws(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip()
+
+
 def contains_dangerous_text(text: str) -> str | None:
-    lowered = text.lower()
+    normalized = _normalize_ws(text.lower())
     for snippet in _BANNED_COMMAND_SNIPPETS:
-        if snippet in lowered:
+        if _normalize_ws(snippet.lower()) in normalized:
             return snippet
+    try:
+        tokens = shlex.split(normalized)
+    except ValueError:
+        tokens = normalized.split()
+    if "chmod" in tokens:
+        has_recursive = any(t in ("-r", "-R", "--recursive") for t in tokens)
+        has_world = any(
+            t in ("777", "666", "0777", "0666") or t.endswith("777")
+            for t in tokens
+        )
+        if has_recursive and has_world:
+            return "chmod recursive world-writable"
     return None
 
 
