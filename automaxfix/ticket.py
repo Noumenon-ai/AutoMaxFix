@@ -73,18 +73,29 @@ def create_ticket_from_failures(
     *,
     severity: int = 1,
     github_actions_run_url: str | None = None,
+    reproduction_command: str | None = None,
+    verification_command: str | None = None,
+    check_definition: dict[str, object] | None = None,
+    bug_report_details: str | None = None,
 ) -> list[tuple[Ticket, Path]]:
     created: list[tuple[Ticket, Path]] = []
+    title_prefix = "Fix failing check" if source == "check" else "Fix failing test"
     for failure in failures:
+        bug_report = f"{failure.test_id} failed: {failure.error_summary}"
+        if bug_report_details:
+            bug_report = f"{bug_report}\n{bug_report_details}"
         ticket = Ticket(
             id=next_ticket_id(tickets_dir),
             created_at=utc_now_iso(),
             source=source,
-            title=f"Fix failing test {failure.test_id}",
-            bug_report=f"{failure.test_id} failed: {failure.error_summary}",
+            title=f"{title_prefix} {failure.test_id}",
+            bug_report=bug_report,
             github_actions_run_url=github_actions_run_url,
             severity=severity,
             suspected_files=[failure.file_path] if failure.file_path else [],
+            reproduction_command=reproduction_command,
+            verification_command=verification_command,
+            check_definition=check_definition,
         )
         created.append((ticket, save_ticket(ticket, tickets_dir)))
     return created

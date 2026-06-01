@@ -13,6 +13,7 @@ from .agent_runner import (
     run_agent_patch,
 )
 from .approval import evaluate_approval
+from .checks import run_checks
 from .config import load_config, write_default_config
 from .models import (
     AgentAttempt,
@@ -96,6 +97,8 @@ def _build_parser() -> argparse.ArgumentParser:
     scan_parser.add_argument(
         "--format", choices=sorted(SCANNERS), help="Format name for --from-file."
     )
+
+    subparsers.add_parser("check", help="Create tickets from configured checks.")
 
     bug_parser = subparsers.add_parser("bug", help="Create a ticket from a bug report.")
     bug_parser.add_argument("bug_report", help="Plain-English bug report.")
@@ -410,6 +413,88 @@ def _scan_command(
     print(f"Created {len(created)} ticket(s).")
     for ticket, path in created:
         print(f"- {ticket.id}: {path}")
+    return 0
+
+
+def _suspected_path_outside_repo(
+    repo_root: Path, raw_path: str | None
+) -> tuple[bool, Path | None]:
+    if not raw_path:
+        return False, None
+    candidate = Path(raw_path)
+    resolved = (
+        candidate.resolve()
+        if candidate.is_absolute()
+        else (repo_root / candidate).resolve()
+    )
+    try:
+        resolved.relative_to(repo_root)
+    except ValueError:
+        return True, resolved
+    return False, resolved
+
+
+def _check_bug_report_details(repo_root: Path, check) -> str:
+    details = [
+        f"Reproduction command: {check.command}",
+        f"Verification command: {check.command}",
+    ]
+    outside_repo, resolved_path = _suspected_path_outside_repo(
+        repo_root,
+        check.suspected_files[0] if check.suspected_files else None,
+    )
+    if outside_repo and resolved_path is not None:
+        details.append(
+            f"Suspected path {resolved_path} is outside repo {repo_root}; the fix may be outside repo and require a human."
+        )
+    return "\n".join(details)
+
+
+def _check_command(base_dir: Path, config_path: str | None) -> int:
+    config = load_config(base_dir, config_path)
+    repo_root = resolve_repo_root(base_dir, config)
+    if not config.checks:
+        print("No checks configured.")
+        return 0
+
+    failures = run_checks(config.checks, repo_root)
+    if not failures:
+        print(f"All {len(config.checks)} configured check(s) passed.")
+        return 0
+
+    tickets_dir = resolve_tickets_dir(repo_root, config)
+    checks_by_name = {check.name: check for check in config.checks}
+    created = []
+    notes: list[str] = []
+    for failure in failures:
+        check = checks_by_name[failure.test_id]
+        created.extend(
+            create_ticket_from_failures(
+                [failure],
+                tickets_dir,
+                "check",
+                severity=check.severity,
+                github_actions_run_url=_ci_run_url(config),
+                reproduction_command=check.command,
+                verification_command=check.command,
+                check_definition=check.to_dict(),
+                bug_report_details=_check_bug_report_details(repo_root, check),
+            )
+        )
+        outside_repo, resolved_path = _suspected_path_outside_repo(
+            repo_root,
+            failure.file_path,
+        )
+        if outside_repo and resolved_path is not None:
+            notes.append(
+                f"Check {check.name!r} may require a human: suspected path {resolved_path} is outside repo {repo_root}."
+            )
+
+    print(f"Created {len(created)} ticket(s) from failing checks.")
+    for ticket, path in created:
+        print(f"- {ticket.id}: {path}")
+    for note in notes:
+        print(note)
     return 0
 
 
@@ -1271,6 +1356,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "scan":
         source, output_path = _resolve_scan_source(args, parser)
         return _scan_command(base_dir, args.config, source, output_path)
+    if args.command == "check":
+        return _check_command(base_dir, args.config)
     if args.command == "bug":
         return _bug_command(base_dir, args.config, args.bug_report)
     if args.command == "reproduce":

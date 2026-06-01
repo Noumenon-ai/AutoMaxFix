@@ -1,10 +1,16 @@
 from __future__ import annotations
 
 import json
+import shlex
+import sys
 from pathlib import Path
 
 from automaxfix.cli import main
 from tests.helpers import create_phase2_repo
+
+
+def _python_command(script: str) -> str:
+    return f"{shlex.quote(sys.executable)} -c {shlex.quote(script)}"
 
 
 def test_cli_init_creates_expected_layout(tmp_path: Path, monkeypatch) -> None:
@@ -56,3 +62,37 @@ def test_cli_report_latest_handles_missing_reports(tmp_path: Path, monkeypatch) 
     monkeypatch.chdir(tmp_path)
     main(["init"])
     assert main(["report", "--latest"]) == 0
+
+
+def test_cli_check_creates_ticket_with_reproduction_and_verification_command(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    main(["init"])
+    config_path = tmp_path / ".automaxfix" / "config.yml"
+    outside_path = (tmp_path.parent / "external-drift.txt").resolve()
+    outside_path.write_text("drift\n", encoding="utf-8")
+    check_command = _python_command("print('ERROR runtime drift detected')")
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8")
+        + "\n"
+        + "checks:\n"
+        + '  - name: "runtime drift"\n'
+        + f"    command: {json.dumps(check_command)}\n"
+        + '    expect: "matches"\n'
+        + '    pattern: "ERROR"\n'
+        + "    suspected_files:\n"
+        + f"      - {json.dumps(str(outside_path))}\n",
+        encoding="utf-8",
+    )
+
+    assert main(["check"]) == 0
+
+    tickets = sorted((tmp_path / ".automaxfix" / "tickets").glob("*.json"))
+    assert len(tickets) == 1
+    payload = json.loads(tickets[0].read_text(encoding="utf-8"))
+    assert payload["source"] == "check"
+    assert payload["reproduction_command"] == check_command
+    assert payload["verification_command"] == check_command
+    assert "outside repo" in payload["bug_report"]
+    assert "require a human" in payload["bug_report"]
