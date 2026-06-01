@@ -3,6 +3,8 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+import yaml
+
 from .models import Config
 from .utils import ensure_directory
 
@@ -52,6 +54,15 @@ watch_mode:
     - "go"
     - "cargo"
   auto_approve_in_watch: false
+# checks:
+#   - name: "runtime drift"
+#     command: "python -c \"print('ERROR runtime drift detected')\""
+#     expect: "matches"
+#     pattern: "ERROR"
+#     suspected_files:
+#       - "app.log"
+#     severity: 2
+#     timeout_seconds: 60
 """
 
 
@@ -147,14 +158,20 @@ def _parse_mapping(
 
 
 def parse_config_text(text: str) -> Config:
-    tokens = _tokenize(text)
-    if not tokens:
+    if not text.strip():
         return Config.from_dict({})
-    payload, index = _parse_mapping(tokens, 0, tokens[0][1])
-    if index != len(tokens):
-        lineno = tokens[index][0]
-        raise ConfigError(f"Line {lineno}: could not parse config")
-    return Config.from_dict(payload)
+    try:
+        payload = yaml.safe_load(text)
+    except yaml.YAMLError as exc:
+        raise ConfigError(f"Could not parse config: {exc}") from exc
+    if payload is None:
+        payload = {}
+    if not isinstance(payload, dict):
+        raise ConfigError("Config root must be a mapping")
+    try:
+        return Config.from_dict(payload)
+    except ValueError as exc:
+        raise ConfigError(str(exc)) from exc
 
 
 def load_config(base_dir: Path, config_path: str | None = None) -> Config:

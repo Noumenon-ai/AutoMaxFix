@@ -6,6 +6,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+if False:  # pragma: no cover
+    from .checks import CheckDefinition
+
 
 def _env_flag(name: str) -> bool | None:
     raw_value = os.environ.get(name)
@@ -151,6 +154,7 @@ class Config:
     patch: PatchConfig = field(default_factory=PatchConfig)
     approval: ApprovalConfig = field(default_factory=ApprovalConfig)
     watch_mode: WatchConfig = field(default_factory=WatchConfig)
+    checks: list["CheckDefinition"] = field(default_factory=list)
 
     @property
     def max_files_changed(self) -> int:
@@ -175,14 +179,22 @@ class Config:
             "patch": self.patch.to_dict(),
             "approval": self.approval.to_dict(),
             "watch_mode": self.watch_mode.to_dict(),
+            "checks": [check.to_dict() for check in self.checks],
         }
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "Config":
+        from .checks import CheckDefinition
+
         agent_payload = payload.get("agent")
         patch_payload = payload.get("patch")
         approval_payload = payload.get("approval")
         watch_payload = payload.get("watch_mode")
+        raw_checks = payload.get("checks", [])
+        if raw_checks is None:
+            raw_checks = []
+        if not isinstance(raw_checks, list):
+            raise ValueError("Config field 'checks' must be a list")
         ci_mode = bool(payload.get("ci_mode", False))
         env_ci_mode = _env_flag("AUTOMAXFIX_CI_MODE")
         if env_ci_mode is not None:
@@ -230,6 +242,11 @@ class Config:
             watch_mode=WatchConfig.from_dict(
                 watch_payload if isinstance(watch_payload, dict) else None
             ),
+            checks=[
+                CheckDefinition.from_dict(item)
+                for item in raw_checks
+                if isinstance(item, dict)
+            ],
         )
 
 
@@ -317,6 +334,9 @@ class Ticket:
     status: str = "new"
     suspected_files: list[str] = field(default_factory=list)
     reproduction_test: str | None = None
+    reproduction_command: str | None = None
+    verification_command: str | None = None
+    check_definition: dict[str, Any] | None = None
     patch_summary: str | None = None
     tests_run: list[str] = field(default_factory=list)
     result: str | None = None
@@ -334,6 +354,9 @@ class Ticket:
             "status": self.status,
             "suspected_files": list(self.suspected_files),
             "reproduction_test": self.reproduction_test,
+            "reproduction_command": self.reproduction_command,
+            "verification_command": self.verification_command,
+            "check_definition": self.check_definition,
             "patch_summary": self.patch_summary,
             "tests_run": list(self.tests_run),
             "result": self.result,
@@ -359,6 +382,21 @@ class Ticket:
             reproduction_test=(
                 str(payload["reproduction_test"])
                 if payload.get("reproduction_test") is not None
+                else None
+            ),
+            reproduction_command=(
+                str(payload["reproduction_command"])
+                if payload.get("reproduction_command") is not None
+                else None
+            ),
+            verification_command=(
+                str(payload["verification_command"])
+                if payload.get("verification_command") is not None
+                else None
+            ),
+            check_definition=(
+                dict(payload["check_definition"])
+                if isinstance(payload.get("check_definition"), dict)
                 else None
             ),
             patch_summary=(
