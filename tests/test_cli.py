@@ -96,3 +96,54 @@ def test_cli_check_creates_ticket_with_reproduction_and_verification_command(
     assert payload["verification_command"] == check_command
     assert "outside repo" in payload["bug_report"]
     assert "require a human" in payload["bug_report"]
+
+
+def test_cli_monitor_creates_linked_regression_ticket(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    main(["init"])
+    original_ticket_path = (
+        tmp_path / ".automaxfix" / "tickets" / "AMF-20260601-001.json"
+    )
+    original_ticket_path.write_text(
+        json.dumps(
+            {
+                "id": "AMF-20260601-001",
+                "created_at": "2026-06-01T12:00:00+00:00",
+                "source": "pytest",
+                "title": "Fix calculator regression",
+                "bug_report": "calculator test failed",
+                "status": "passed",
+                "suspected_files": ["calculator.py"],
+                "reproduction_command": "pytest tests/test_calculator.py -v",
+                "verification_command": _python_command(
+                    "import sys; print('boom'); raise SystemExit(7)"
+                ),
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert main(["monitor"]) == 0
+
+    tickets = sorted((tmp_path / ".automaxfix" / "tickets").glob("*.json"))
+    assert len(tickets) == 2
+
+    original_payload = json.loads(original_ticket_path.read_text(encoding="utf-8"))
+    regression_path = next(path for path in tickets if path != original_ticket_path)
+    regression_payload = json.loads(regression_path.read_text(encoding="utf-8"))
+
+    assert original_payload["status"] == "passed"
+    assert regression_payload["source"] == "regression"
+    assert regression_payload["regressed_from"] == "AMF-20260601-001"
+    assert (
+        regression_payload["verification_command"]
+        == original_payload["verification_command"]
+    )
+    assert (
+        regression_payload["reproduction_command"]
+        == "pytest tests/test_calculator.py -v"
+    )
+    assert regression_payload["suspected_files"] == ["calculator.py"]
+    assert "content_sha256" in regression_payload

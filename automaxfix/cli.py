@@ -24,6 +24,7 @@ from .models import (
     StrategyName,
     TicketStrategyAttempt,
 )
+from .monitor import filter_recent_tickets, find_monitorable, monitor_once
 from .patch_parser import validate_patch_text
 from .patcher import inspect_repo
 from .reporter import latest_report_path, resolve_reports_dir, write_report
@@ -32,6 +33,7 @@ from .scanners import SCANNERS
 from .test_runner import run_regression_suite, run_targeted_test
 from .ticket import (
     create_bug_ticket,
+    create_regression_ticket,
     create_ticket_from_failures,
     load_ticket,
     resolve_tickets_dir,
@@ -161,6 +163,16 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     subparsers.add_parser("status", help="Show current AutoMaxFix status.")
+
+    monitor_parser = subparsers.add_parser(
+        "monitor", help="Re-run verification commands for passed tickets."
+    )
+    monitor_parser.add_argument(
+        "--since-days",
+        type=_positive_int,
+        default=None,
+        help="Limit to tickets created in the last N days.",
+    )
 
     metrics_parser = subparsers.add_parser(
         "metrics", help="Summarize the local ticket archive."
@@ -575,6 +587,49 @@ def _status_command(base_dir: Path, config_path: str | None) -> int:
         )
     print(f"Tickets: {ticket_count}")
     print(f"Reports: {report_count}")
+    return 0
+
+
+def _monitor_command(
+    base_dir: Path,
+    config_path: str | None,
+    *,
+    since_days: int | None,
+) -> int:
+    config = load_config(base_dir, config_path)
+    repo_root = resolve_repo_root(base_dir, config)
+    tickets_dir = resolve_tickets_dir(repo_root, config)
+    tickets = [load_ticket(path) for path in sorted(tickets_dir.glob("*.json"))]
+    candidates = filter_recent_tickets(tickets, since_days)
+    monitorable = find_monitorable(candidates)
+    results = monitor_once(
+        monitorable,
+        repo_root,
+        timeout_seconds=config.agent.timeout_seconds,
+    )
+
+    tickets_by_id = {ticket.id: ticket for ticket in monitorable}
+    created: list[tuple[str, Path]] = []
+    for result in results:
+        if not result.regressed:
+            continue
+        ticket, path = create_regression_ticket(
+            tickets_by_id[result.ticket_id],
+            tickets_dir,
+            output_excerpt=result.output_excerpt,
+            returncode=result.returncode,
+            github_actions_run_url=_ci_run_url(config),
+        )
+        created.append((ticket.id, path))
+
+    print(f"Monitored {len(results)} ticket(s).")
+    print(f"Regressed: {len(created)}.")
+    if created:
+        print("Created regression ticket(s):")
+        for ticket_id, path in created:
+            print(f"- {ticket_id}: {path}")
+    else:
+        print("Created regression ticket(s): none.")
     return 0
 
 
@@ -1385,6 +1440,8 @@ def main(argv: list[str] | None = None) -> int:
         return _report_command(base_dir, args.config, args.latest)
     if args.command == "status":
         return _status_command(base_dir, args.config)
+    if args.command == "monitor":
+        return _monitor_command(base_dir, args.config, since_days=args.since_days)
     if args.command == "metrics":
         return _metrics_command(
             base_dir, args.config, since_days=args.since_days, output_format=args.format
