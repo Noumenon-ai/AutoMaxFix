@@ -336,6 +336,7 @@ class Ticket:
     reproduction_test: str | None = None
     reproduction_command: str | None = None
     verification_command: str | None = None
+    regressed_from: str | None = None
     check_definition: dict[str, Any] | None = None
     patch_summary: str | None = None
     tests_run: list[str] = field(default_factory=list)
@@ -356,6 +357,7 @@ class Ticket:
             "reproduction_test": self.reproduction_test,
             "reproduction_command": self.reproduction_command,
             "verification_command": self.verification_command,
+            "regressed_from": self.regressed_from,
             "check_definition": self.check_definition,
             "patch_summary": self.patch_summary,
             "tests_run": list(self.tests_run),
@@ -392,6 +394,11 @@ class Ticket:
             verification_command=(
                 str(payload["verification_command"])
                 if payload.get("verification_command") is not None
+                else None
+            ),
+            regressed_from=(
+                str(payload["regressed_from"])
+                if payload.get("regressed_from") is not None
                 else None
             ),
             check_definition=(

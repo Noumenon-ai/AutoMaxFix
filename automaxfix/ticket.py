@@ -66,6 +66,44 @@ def create_bug_ticket(
     return ticket, save_ticket(ticket, tickets_dir)
 
 
+def create_regression_ticket(
+    original_ticket: Ticket,
+    tickets_dir: Path,
+    *,
+    output_excerpt: str,
+    returncode: int,
+    now: datetime | None = None,
+    github_actions_run_url: str | None = None,
+) -> tuple[Ticket, Path]:
+    created_at = (now or datetime.now(timezone.utc)).replace(microsecond=0).isoformat()
+    bug_report_lines = [
+        f"Ticket {original_ticket.id} previously passed but its verification now fails.",
+        f"Original ticket: {original_ticket.id}",
+        f"Verification command: {original_ticket.verification_command or ''}",
+        f"Latest verification exit: {returncode}",
+    ]
+    if original_ticket.reproduction_command:
+        bug_report_lines.append(
+            f"Reproduction command: {original_ticket.reproduction_command}"
+        )
+    if output_excerpt:
+        bug_report_lines.extend(["Output excerpt:", output_excerpt])
+    ticket = Ticket(
+        id=next_ticket_id(tickets_dir, now=now),
+        created_at=created_at,
+        source="regression",
+        title=f"Regression: {original_ticket.title}",
+        bug_report="\n".join(bug_report_lines),
+        github_actions_run_url=github_actions_run_url,
+        severity=original_ticket.severity,
+        suspected_files=list(original_ticket.suspected_files),
+        reproduction_command=original_ticket.reproduction_command,
+        verification_command=original_ticket.verification_command,
+        regressed_from=original_ticket.id,
+    )
+    return ticket, save_ticket(ticket, tickets_dir)
+
+
 def create_ticket_from_failures(
     failures: list[FailureRecord],
     tickets_dir: Path,
