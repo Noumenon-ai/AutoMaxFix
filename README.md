@@ -23,11 +23,12 @@ tested, and covered by the suite. The right column is direction, not done.
 
 | Works today | On the roadmap |
 | --- | --- |
-| Detect failures from test runners (pytest, jest, vitest, mocha, go, cargo, generic) | Anomaly detection beyond explicit checks (metrics, traces) |
-| Detect **runtime drift** via command checks — healthchecks, service state, log patterns, process liveness | Continuous outcome monitoring: re-verify a fix keeps holding over time |
-| Reproduce, repair one ticket at a time, validate with targeted + regression tests | A cross-run reliability ledger / fix provenance trusted across agents |
-| Human approval gate; one ticket then stop; optional watch loop on an interval | Learning from past fixes to prioritize and pre-empt failures |
-| Hardened: path allowlist, command/secret blocks, sanitized agent env, reproduction-test edits blocked, ticket integrity checksums | Repair beyond the repo (config/infra) — today these are detected and reported, not auto-patched |
+| Detect failures from test runners (pytest, jest, vitest, mocha, go, cargo, generic) | Anomaly detection beyond explicit checks (metrics, traces, statistical drift) |
+| Detect **runtime drift** via command checks — healthchecks, service state, log patterns, process liveness | A cross-run reliability ledger / fix provenance trusted across agents |
+| **Outcome monitoring** — re-verify passed fixes (`automaxfix monitor`) and raise a linked regression ticket when a fix stops holding | Learning from past fixes to prioritize and pre-empt failures |
+| Reproduce, repair one ticket at a time, validate with targeted + regression tests | Scheduled/continuous monitoring as a managed loop (today `monitor` is one-shot, run via cron or `watch`) |
+| Human approval gate; one ticket then stop; optional watch loop on an interval | Repair beyond the repo (config/infra) — today these are detected and reported, not auto-patched |
+| Hardened: path allowlist, command/secret blocks, sanitized agent env, reproduction-test edits blocked, ticket integrity checksums | |
 
 See [ROADMAP.md](ROADMAP.md) for the longer-term loop and where the project is headed.
 
@@ -109,6 +110,29 @@ When a failure's root cause is outside the repository (for example a
 `/etc/systemd` unit), AutoMaxFix detects, tickets, and reports it — it does not
 pretend it can patch something outside its allowlist.
 
+## Outcome monitoring
+
+A fix that passed once can quietly break later. `automaxfix monitor` re-runs the
+verification of every previously-passed ticket and raises a fresh ticket if the
+failure has returned:
+
+```
+automaxfix monitor [--since-days N]
+```
+
+For each ticket with status `passed` and a stored verification command, monitor
+re-runs that exact command in the sanitized minimal environment. If it now fails,
+monitor creates a new **regression ticket** (`source: regression`,
+`regressed_from: <original id>`) that copies the original's verification,
+reproduction, and suspected files, then flows into the normal repair loop. The
+original ticket is left untouched, so the history of "fixed, then regressed" is
+preserved.
+
+It re-uses the same signal that originally proved the fix, so a regression cannot
+be hidden by editing a test. `monitor` is one-shot by design — schedule it with
+cron or alongside `watch`; there is no background daemon. `--since-days N` limits
+monitoring to tickets created within the last N days.
+
 ## What it does not do
 
 - Does not call any hosted API directly. It drives whichever local agent CLI is
@@ -156,6 +180,7 @@ automaxfix bug "free-text bug report"
 automaxfix reproduce --ticket PATH
 automaxfix run --ticket PATH [--patch-file FILE] [--agent codex_cli|claude_cli] [--yes] [--max-attempts N] [--no-repro]
 automaxfix watch --test-runner pytest --command "pytest -q" [--interval SECONDS]
+automaxfix monitor [--since-days N]
 automaxfix report [--latest]
 automaxfix status
 automaxfix metrics [--since-days N] [--format text|json]

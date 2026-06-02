@@ -44,8 +44,11 @@ front of it:
   the failure.
 - **deploy** — not autonomous. AutoMaxFix applies a patch locally and writes a
   report; the CI action can open a PR. It does not deploy on its own.
-- **monitor outcome / learn** — not built. There is no continuous re-verification
-  that a fix keeps holding, and no learning across runs yet.
+- **monitor outcome** — shipped (one-shot). `automaxfix monitor` re-verifies
+  passed tickets and raises a linked regression ticket when a fix stops holding.
+  Scheduling is external (cron / `watch`); a managed continuous loop is still
+  ahead.
+- **learn** — not built. No learning across runs yet.
 
 ## What is intentionally bounded (and will stay bounded)
 
@@ -64,14 +67,14 @@ trustworthy:
 
 In rough priority order, not committed dates:
 
-1. **Outcome monitoring** — after a fix, re-run its check/repro on a schedule and
-   raise a fresh ticket if the failure returns.
-2. **Reliability ledger** — an append-only, checksummed record of every
+1. **Reliability ledger** — an append-only, checksummed record of every
    ticket -> patch -> validation -> outcome, surfaced as a report other tools and
    humans can trust.
-3. **Broader detection** — signals beyond a single command (metrics endpoints,
+2. **Broader detection** — signals beyond a single command (metrics endpoints,
    structured logs, CI history).
-4. **Cross-agent integration** — make the reliability layer easy to put in front
+3. **Cross-agent integration** — make the reliability layer easy to put in front
    of any agent's output, not just a local test suite.
+4. **Scheduled monitoring** — a managed continuous monitor loop on top of the
+   one-shot `automaxfix monitor` shipped today.
 
 Contributions and issues that sharpen this direction are welcome.
