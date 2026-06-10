@@ -41,6 +41,7 @@ patch:
   max_files_changed: 8
   allow_new_tests: true
   allow_new_source_files: false
+  block_test_edits: true
 approval:
   require_human_approval: true
 watch_mode:

@@ -60,8 +60,12 @@ trustworthy:
 - **Repair stays inside the repo allowlist.** Failures whose root cause is
   outside the repository (config, infrastructure, `/etc` units) are detected,
   ticketed, and reported — never silently or fakely "fixed."
-- **The fix is proven against the original signal.** A patch cannot weaken or
-  edit the reproduction it must satisfy.
+- **The fix is proven against the original signal — tests are immutable to the
+  fix.** A fix patch cannot modify or delete ANY pre-existing test file, not just
+  the attached reproduction, and this holds even in `--no-repro` mode where no
+  single reproduction is designated. A patch that tries to weaken the tests it
+  must satisfy is rejected (`block_test_edits`, on by default). This is what makes
+  a green result mean something: the fix changed the code, not the goalposts.
 
 ## Near-term direction
 

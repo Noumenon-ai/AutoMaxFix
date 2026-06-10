@@ -53,6 +53,13 @@ class PatchConfig:
     max_files_changed: int = 8
     allow_new_tests: bool = True
     allow_new_source_files: bool = False
+    # Block a fix-patch from MODIFYING any pre-existing test file (not just the
+    # attached reproduction). A patch must never pass by weakening the very
+    # tests it is validated against — including in --no-repro mode where no
+    # single reproduction file is designated. Creating new tests is still
+    # governed by allow_new_tests. On by default; opt out only when you
+    # deliberately want AMF to edit tests.
+    block_test_edits: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -61,6 +68,7 @@ class PatchConfig:
             "max_files_changed": self.max_files_changed,
             "allow_new_tests": self.allow_new_tests,
             "allow_new_source_files": self.allow_new_source_files,
+            "block_test_edits": self.block_test_edits,
         }
 
     @classmethod
@@ -72,6 +80,7 @@ class PatchConfig:
             max_files_changed=int(payload.get("max_files_changed", 8)),
             allow_new_tests=bool(payload.get("allow_new_tests", True)),
             allow_new_source_files=bool(payload.get("allow_new_source_files", False)),
+            block_test_edits=bool(payload.get("block_test_edits", True)),
         )
 
 
