@@ -28,7 +28,7 @@ tested, and covered by the suite. The right column is direction, not done.
 | **Outcome monitoring** — re-verify passed fixes (`automaxfix monitor`) and raise a linked regression ticket when a fix stops holding | Learning from past fixes to prioritize and pre-empt failures |
 | Reproduce, repair one ticket at a time, validate with targeted + regression tests | Scheduled/continuous monitoring as a managed loop (today `monitor` is one-shot, run via cron or `watch`) |
 | Human approval gate; one ticket then stop; optional watch loop on an interval | Repair beyond the repo (config/infra) — today these are detected and reported, not auto-patched |
-| Hardened: path allowlist, command/secret blocks, sanitized agent env, reproduction-test edits blocked, ticket integrity checksums | |
+| Hardened: path allowlist, command/secret blocks, sanitized agent env, **all existing-test edits blocked** (a fix can't weaken the tests it must satisfy, even in `--no-repro` mode), ticket integrity checksums | |
 
 See [ROADMAP.md](ROADMAP.md) for the longer-term loop and where the project is headed.
 
@@ -194,7 +194,10 @@ The safety floor is enforced before any agent sees a prompt:
 - Edits cannot leave `repo_path` or enter `blocked_paths`.
 - Diffs that touch `.git`, `.env*`, `secrets*`, `.venv`, `node_modules`, or any
   other configured blocked path are rejected at validation time.
-- A patch cannot modify the reproduction test for its own ticket.
+- A fix patch cannot modify or delete ANY pre-existing test file — not just the
+  reproduction, and including in `--no-repro` mode where no single reproduction is
+  designated. A fix must change the code, never weaken the tests it is validated
+  against (`block_test_edits`, on by default; new tests still allowed).
 - Package installs, `curl | bash`, `wget | bash`, `sudo`, and `rm -rf` patterns
   are rejected (tokenized, not naive substring matching).
 - Binary patches, mode-change-only patches, and patches that exceed

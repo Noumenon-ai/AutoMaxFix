@@ -79,30 +79,79 @@ def test_validate_patch_rejects_modifying_reproduction_test(tmp_path: Path) -> N
     assert any("reproduction test" in item for item in result.errors)
 
 
-def test_validate_patch_allows_different_test_file(tmp_path: Path) -> None:
+def _weaken_other_test_patch() -> str:
+    return """diff --git a/tests/test_other.py b/tests/test_other.py
+--- a/tests/test_other.py
++++ b/tests/test_other.py
+@@ -1,2 +1,2 @@
+ def test_other():
+-    assert expensive_check() == 42
++    assert True
+"""
+
+
+def _setup_two_tests(tmp_path: Path) -> None:
     tests_dir = tmp_path / "tests"
     tests_dir.mkdir()
     (tests_dir / "test_repro.py").write_text(
         "def test_repro():\n    assert 2 + 2 == 4\n",
         encoding="utf-8",
     )
-    other_test = tests_dir / "test_other.py"
-    other_test.write_text(
-        "def test_other():\n    assert 1 == 1\n",
+    (tests_dir / "test_other.py").write_text(
+        "def test_other():\n    assert expensive_check() == 42\n",
         encoding="utf-8",
     )
-    patch = """diff --git a/tests/test_other.py b/tests/test_other.py
---- a/tests/test_other.py
-+++ b/tests/test_other.py
-@@ -1,2 +1,2 @@
- def test_other():
--    assert 1 == 1
-+    assert 1 + 1 == 2
-"""
+
+
+def test_validate_patch_blocks_editing_other_existing_test(tmp_path: Path) -> None:
+    # A fix must not weaken a DIFFERENT existing test to pass — not just the
+    # designated reproduction. (Red-team hole, 2026-05-31.)
+    _setup_two_tests(tmp_path)
     result = validate_patch_text(
-        patch,
+        _weaken_other_test_patch(),
         repo_root=tmp_path,
         config=Config(),
         reproduction_test="tests/test_repro.py",
     )
+    assert result.valid is False
+    assert any("existing test files" in item for item in result.errors)
+
+
+def test_validate_patch_blocks_test_edit_in_no_repro_mode(tmp_path: Path) -> None:
+    # The mode the UI / watchdog / loop actually use: no single reproduction is
+    # attached. The patch must STILL be unable to weaken any existing test.
+    _setup_two_tests(tmp_path)
+    result = validate_patch_text(
+        _weaken_other_test_patch(),
+        repo_root=tmp_path,
+        config=Config(),  # note: NO reproduction_test passed
+    )
+    assert result.valid is False
+    assert any("existing test files" in item for item in result.errors)
+
+
+def test_block_test_edits_opt_out_allows_test_edit(tmp_path: Path) -> None:
+    # The escape hatch: a project that deliberately wants AMF to edit tests can
+    # set block_test_edits=False.
+    _setup_two_tests(tmp_path)
+    cfg = Config()
+    cfg.patch.block_test_edits = False
+    result = validate_patch_text(
+        _weaken_other_test_patch(),
+        repo_root=tmp_path,
+        config=cfg,
+        reproduction_test="tests/test_repro.py",
+    )
     assert result.valid is True
+
+
+def test_is_test_path_covers_languages() -> None:
+    from automaxfix.patch_parser import _is_test_path
+
+    assert _is_test_path("tests/test_app.py")
+    assert _is_test_path("pkg/handler_test.go")
+    assert _is_test_path("src/foo.test.ts")
+    assert _is_test_path("web/__tests__/x.jsx")
+    assert _is_test_path("app/Button.spec.tsx")
+    assert not _is_test_path("src/app.py")
+    assert not _is_test_path("src/latest.py")

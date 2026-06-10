@@ -63,9 +63,27 @@ def parse_unified_diff(patch_text: str) -> list[PatchChange]:
     return changes
 
 
+_TEST_DIR_PARTS = {"tests", "test", "__tests__", "spec", "specs"}
+_TEST_NAME_RE = re.compile(
+    r"(?:^test_.*\.py$|_test\.py$"  # python: test_x.py / x_test.py
+    r"|\.(?:test|spec)\.[cm]?[jt]sx?$"  # js/ts: x.test.ts / x.spec.jsx
+    r"|_test\.go$"  # go: x_test.go
+    r"|(?:Test|Tests)\.java$"  # java: XTest.java
+    r"|_(?:test|spec)\.rb$)",  # ruby: x_test.rb / x_spec.rb
+    re.IGNORECASE,
+)
+
+
 def _is_test_path(path: str) -> bool:
+    """True for conventional test files across languages. Used to (a) gate new
+    test creation and (b) block edits to existing tests, so a fix can never be
+    'proven' by weakening the tests it must satisfy."""
     pure = Path(path)
-    return bool(pure.parts) and pure.parts[0] == "tests"
+    if not pure.parts:
+        return False
+    if any(part in _TEST_DIR_PARTS for part in pure.parts):
+        return True
+    return bool(_TEST_NAME_RE.search(pure.name))
 
 
 def validate_patch_text(
@@ -148,6 +166,13 @@ def validate_patch_text(
                 errors.append(f"Creating new source files is blocked: {target_path}")
         elif not patch_target.exists():
             errors.append(f"Patch modifies a file that does not exist: {target_path}")
+        elif config.patch.block_test_edits and _is_test_path(target_path):
+            # Modifying an EXISTING test file. The reproduction file is already
+            # blocked above; this closes the broader hole (the red-team finding):
+            # an agent must not weaken ANY existing test to make a fake fix pass,
+            # including in --no-repro mode where no single reproduction is
+            # designated. New tests are still governed by allow_new_tests.
+            errors.append(f"Patch cannot modify existing test files: {target_path}")
 
         snippet = contains_dangerous_text("\n".join(change.added_lines))
         if snippet:
@@ -162,6 +187,7 @@ def validate_patch_text(
             or error.startswith("Deleting files ")
             or error.startswith("Patch modifies a file ")
             or error.startswith("Patch cannot modify the reproduction test file")
+            or error.startswith("Patch cannot modify existing test files")
             or "dangerous content" in error
             or "Binary patches" in error
             or "Mode changes" in error
