@@ -150,6 +150,32 @@ def test_phase2_cli_run_passes_when_originating_check_passes(
     assert "return a + b" in (repo_root / "calculator.py").read_text(encoding="utf-8")
 
 
+def test_phase2_cli_first_run_without_yes_asks_for_approval_not_dirty(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    from tests.helpers import run_checked
+
+    repo_root, ticket_path = create_phase2_repo(tmp_path)
+    # Repos that did not gitignore .automaxfix used to see AutoMaxFix's own
+    # ticket and log writes as a dirty workspace on the very first run.
+    (repo_root / ".gitignore").write_text("__pycache__/\n", encoding="utf-8")
+    run_checked(["git", "add", ".gitignore"], cwd=repo_root)
+    run_checked(["git", "commit", "-m", "drop state dir ignore"], cwd=repo_root)
+
+    patch_path = tmp_path / "fix.diff"
+    patch_path.write_text(build_fix_patch(), encoding="utf-8")
+
+    monkeypatch.chdir(repo_root)
+    assert (
+        main(["run", "--ticket", str(ticket_path), "--patch-file", str(patch_path)])
+        == 0
+    )
+
+    output = capsys.readouterr().out
+    assert "Human approval required. Re-run with --yes." in output
+    assert "Workspace is dirty" not in output
+
+
 def test_phase2_cli_run_refuses_tampered_ticket(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
