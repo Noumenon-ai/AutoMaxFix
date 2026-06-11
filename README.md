@@ -52,8 +52,9 @@ automaxfix run --ticket .automaxfix/tickets/AMF-YYYYMMDD-001.json --agent codex_
 ```
 
 `run` validates the diff, asks for approval (unless `--yes`), applies the patch
-inside the path allowlist, runs the targeted and regression tests, and writes a
-report. It stops after one ticket.
+inside the path allowlist, runs the targeted and regression tests (plus, for
+check-sourced tickets, the originating check), and writes a report. It stops
+after one ticket.
 
 ## What it does
 
@@ -64,7 +65,8 @@ report. It stops after one ticket.
 - Generates a reproduction brief per ticket.
 - Drives Codex CLI or Claude CLI through a strict prompt/diff contract.
 - Validates every diff against the safety rules below before apply.
-- Runs targeted and regression tests after apply.
+- Runs targeted and regression tests after apply; check-sourced tickets must
+  also pass a re-run of the originating check.
 - Writes a per-run report with rollback instructions.
 
 ## Checks (runtime-drift detection)
@@ -121,7 +123,10 @@ automaxfix monitor [--since-days N]
 ```
 
 For each ticket with status `passed` and a stored verification command, monitor
-re-runs that exact command in the sanitized minimal environment. If it now fails,
+re-runs the original signal in the sanitized minimal environment: check-sourced
+tickets re-apply the full check semantics (exit code plus `matches` /
+`not_matches` pattern), other tickets re-run the stored verification command and
+judge by exit code. If the signal now fails,
 monitor creates a new **regression ticket** (`source: regression`,
 `regressed_from: <original id>`) that copies the original's verification,
 reproduction, and suspected files, then flows into the normal repair loop. The
@@ -145,7 +150,8 @@ monitoring to tickets created within the last N days.
 
 ## Configuration
 
-`.automaxfix/config.yml` is created by `automaxfix init`. Key fields:
+`.automaxfix/config.yml` is created by `automaxfix init`, which also adds
+`.automaxfix/` to your `.gitignore`. Key fields:
 
 ```
 agent:
@@ -202,12 +208,16 @@ The safety floor is enforced before any agent sees a prompt:
   are rejected (tokenized, not naive substring matching).
 - Binary patches, mode-change-only patches, and patches that exceed
   `max_files_changed` are rejected.
-- Workspace must be clean (no uncommitted changes) before apply.
+- Workspace must be clean (no uncommitted changes) before apply. AutoMaxFix's
+  own state files under `.automaxfix/` are excluded from that check, and
+  `automaxfix init` adds `.automaxfix/` to your `.gitignore`.
 - Agent and check subprocesses run with a minimal sanitized environment, so the
   full `os.environ` is never exposed.
 - Ticket content is sanitized before write: tokens, keys, and other
   credential-shaped strings are replaced with `[REDACTED]`.
-- Ticket files carry an integrity sha256 verified on load.
+- Ticket files carry an integrity sha256 verified on load: a ticket whose
+  checksum no longer matches its content is refused with an error. Legacy
+  tickets without a checksum field still load.
 
 `automaxfix backup` archives `.automaxfix/` to a timestamped tarball so the local
 ticket archive survives accidental deletion.
