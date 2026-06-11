@@ -36,13 +36,22 @@ def save_ticket(ticket: Ticket, tickets_dir: Path) -> Path:
     return path
 
 
+class TicketIntegrityError(RuntimeError):
+    """Raised when a ticket's stored integrity checksum does not match."""
+
+
 def load_ticket(path: Path) -> Ticket:
     payload = read_json(path)
-    if isinstance(payload, dict) and not verify_ticket_checksum(payload):
-        # Best-effort integrity warning; legacy tickets without checksum are
-        # tolerated. Callers that need strict verification should call
-        # verify_ticket_checksum directly.
-        pass
+    if isinstance(payload, dict) and "content_sha256" in payload:
+        # Legacy tickets without a checksum field are tolerated; a ticket that
+        # carries a checksum which no longer matches its content was modified
+        # outside AutoMaxFix and must not be trusted.
+        if not verify_ticket_checksum(payload):
+            raise TicketIntegrityError(
+                f"Ticket {path} failed its integrity check: the stored "
+                "content_sha256 does not match the ticket content. Refusing to "
+                "load a tampered ticket. Recreate the ticket or remove the file."
+            )
     return Ticket.from_dict(payload)
 
 
