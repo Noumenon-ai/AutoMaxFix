@@ -13,7 +13,7 @@ from .agent_runner import (
     run_agent_patch,
 )
 from .approval import evaluate_approval
-from .checks import run_checks
+from .checks import CheckDefinition, CheckRunResult, run_check, run_checks
 from .config import load_config, write_default_config
 from .models import (
     AgentAttempt,
@@ -291,6 +291,8 @@ def _post_patch_failure_reason(
     *,
     targeted_after: CommandResult | None,
     regression_result: CommandResult,
+    check_after: CheckRunResult | None = None,
+    check_error: str | None = None,
 ) -> str:
     if targeted_after is not None and not targeted_after.passed:
         return "Targeted tests failed after patch: " + _command_failure_detail(
@@ -300,7 +302,25 @@ def _post_patch_failure_reason(
         return "Regression suite failed after patch: " + _command_failure_detail(
             regression_result
         )
+    if check_error:
+        return check_error
+    if check_after is not None and check_after.failure is not None:
+        return (
+            f"Originating check {check_after.check.name!r} failed after patch: "
+            f"{check_after.failure.error_summary}"
+        )
     return "Patch applied but one or more post-patch checks failed."
+
+
+def _run_ticket_check(
+    ticket, repo_root: Path
+) -> tuple[CheckRunResult | None, str | None]:
+    """Re-run the check that originally filed this ticket, if any."""
+    try:
+        check = CheckDefinition.from_dict(ticket.check_definition)
+    except (TypeError, ValueError) as exc:
+        return None, f"Ticket check_definition is invalid: {exc}"
+    return run_check(check, repo_root), None
 
 
 def _last_strategy_failure(ticket) -> str:
@@ -1164,23 +1184,37 @@ def _run_command_with_config(
             )
         regression_result = run_regression_suite(config, repo_root)
 
+        check_after: CheckRunResult | None = None
+        check_error: str | None = None
+        if ticket.check_definition is not None:
+            check_after, check_error = _run_ticket_check(ticket, repo_root)
+
         ticket.tests_run = []
         if targeted_before is not None:
             ticket.tests_run.append(targeted_before.command)
         if targeted_after is not None:
             ticket.tests_run.append(targeted_after.command)
         ticket.tests_run.append(regression_result.command)
+        if check_after is not None:
+            ticket.tests_run.append(check_after.check.command)
 
         passed = (
             (skip_repro or (targeted_before is not None and not targeted_before.passed))
             and validation.valid
             and (targeted_after is None or targeted_after.passed)
             and regression_result.passed
+            and check_error is None
+            and (check_after is None or check_after.failure is None)
         )
         if passed:
             final_message = (
                 "Patch validated, applied, and passed targeted and regression tests."
             )
+            if check_after is not None:
+                final_message = (
+                    "Patch validated, applied, and passed targeted tests, the "
+                    "regression suite, and the originating check."
+                )
             ticket.status = "passed"
             ticket.result = final_message
             if persist_strategy_memo:
@@ -1232,6 +1266,8 @@ def _run_command_with_config(
         final_message = _post_patch_failure_reason(
             targeted_after=targeted_after,
             regression_result=regression_result,
+            check_after=check_after,
+            check_error=check_error,
         )
         ticket.status = "failed"
         ticket.result = final_message

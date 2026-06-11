@@ -68,6 +68,88 @@ def test_phase2_cli_run_requires_reproduction(tmp_path: Path, monkeypatch) -> No
     )
 
 
+def _attach_check_definition(
+    repo_root: Path, ticket_path: Path, *, pattern: str
+) -> None:
+    from tests.helpers import run_checked
+
+    log_path = repo_root / "app.log"
+    log_path.write_text("service started\nERROR boom\n", encoding="utf-8")
+    run_checked(["git", "add", "app.log"], cwd=repo_root)
+    run_checked(["git", "commit", "-m", "add app log"], cwd=repo_root)
+
+    ticket = load_ticket(ticket_path)
+    ticket.check_definition = {
+        "name": "error appeared in log",
+        "command": "cat app.log",
+        "expect": "matches",
+        "pattern": pattern,
+    }
+    save_ticket(ticket, repo_root / ".automaxfix" / "tickets")
+
+
+def test_phase2_cli_run_fails_when_originating_check_still_fails(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    repo_root, ticket_path = create_phase2_repo(tmp_path)
+    _attach_check_definition(repo_root, ticket_path, pattern="ERROR")
+    patch_path = tmp_path / "fix.diff"
+    patch_path.write_text(build_fix_patch(), encoding="utf-8")
+
+    monkeypatch.chdir(repo_root)
+    assert (
+        main(
+            [
+                "run",
+                "--ticket",
+                str(ticket_path),
+                "--patch-file",
+                str(patch_path),
+                "--yes",
+            ]
+        )
+        == 0
+    )
+
+    output = capsys.readouterr().out
+    assert "Originating check 'error appeared in log' failed after patch" in output
+
+    ticket = load_ticket(ticket_path)
+    assert ticket.status == "failed"
+    assert "Originating check" in (ticket.result or "")
+    # Patch was rolled back because the check that filed the ticket still fails.
+    assert "return a - b" in (repo_root / "calculator.py").read_text(encoding="utf-8")
+
+
+def test_phase2_cli_run_passes_when_originating_check_passes(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repo_root, ticket_path = create_phase2_repo(tmp_path)
+    _attach_check_definition(repo_root, ticket_path, pattern="FATAL")
+    patch_path = tmp_path / "fix.diff"
+    patch_path.write_text(build_fix_patch(), encoding="utf-8")
+
+    monkeypatch.chdir(repo_root)
+    assert (
+        main(
+            [
+                "run",
+                "--ticket",
+                str(ticket_path),
+                "--patch-file",
+                str(patch_path),
+                "--yes",
+            ]
+        )
+        == 0
+    )
+
+    ticket = load_ticket(ticket_path)
+    assert ticket.status == "passed"
+    assert "cat app.log" in ticket.tests_run
+    assert "return a + b" in (repo_root / "calculator.py").read_text(encoding="utf-8")
+
+
 def test_phase2_cli_run_refuses_tampered_ticket(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
