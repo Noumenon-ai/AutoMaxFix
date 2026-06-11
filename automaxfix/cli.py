@@ -403,9 +403,7 @@ def _ensure_gitignore_entry(base_dir: Path) -> bool:
             if line.strip() in {".automaxfix", ".automaxfix/"}:
                 return False
         separator = "" if not existing or existing.endswith("\n") else "\n"
-        gitignore_path.write_text(
-            f"{existing}{separator}{entry}\n", encoding="utf-8"
-        )
+        gitignore_path.write_text(f"{existing}{separator}{entry}\n", encoding="utf-8")
         return True
     gitignore_path.write_text(f"{entry}\n", encoding="utf-8")
     return True
