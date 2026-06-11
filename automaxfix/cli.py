@@ -32,6 +32,7 @@ from .reproducer import describe_reproduction_step, suggest_reproduction_test_pa
 from .scanners import SCANNERS
 from .test_runner import run_regression_suite, run_targeted_test
 from .ticket import (
+    TicketIntegrityError,
     create_bug_ticket,
     create_regression_ticket,
     create_ticket_from_failures,
@@ -1405,7 +1406,16 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     base_dir = Path.cwd()
+    try:
+        return _dispatch(parser, args, base_dir)
+    except TicketIntegrityError as exc:
+        print(f"ERROR: {exc}")
+        return 1
 
+
+def _dispatch(
+    parser: argparse.ArgumentParser, args: argparse.Namespace, base_dir: Path
+) -> int:
     if args.command == "init":
         return _init_command(base_dir, force=args.force)
     if args.command == "scan":

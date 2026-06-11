@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from automaxfix.cli import main
@@ -65,3 +66,33 @@ def test_phase2_cli_run_requires_reproduction(tmp_path: Path, monkeypatch) -> No
         "No reproduction test found. Create reproduction test before patching."
         in report.read_text(encoding="utf-8")
     )
+
+
+def test_phase2_cli_run_refuses_tampered_ticket(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    repo_root, ticket_path = create_phase2_repo(tmp_path)
+    patch_path = tmp_path / "fix.diff"
+    patch_path.write_text(build_fix_patch(), encoding="utf-8")
+
+    payload = json.loads(ticket_path.read_text(encoding="utf-8"))
+    payload["reproduction_test"] = "tests/test_other.py"
+    ticket_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    monkeypatch.chdir(repo_root)
+    exit_code = main(
+        [
+            "run",
+            "--ticket",
+            str(ticket_path),
+            "--patch-file",
+            str(patch_path),
+            "--yes",
+        ]
+    )
+
+    assert exit_code == 1
+    output = capsys.readouterr().out
+    assert "integrity check" in output
+    assert "Refusing to load a tampered ticket" in output
+    assert "return a - b" in (repo_root / "calculator.py").read_text(encoding="utf-8")
