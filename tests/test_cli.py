@@ -22,6 +22,32 @@ def test_cli_init_creates_expected_layout(tmp_path: Path, monkeypatch) -> None:
     assert (tmp_path / ".automaxfix" / "logs").is_dir()
 
 
+def test_cli_init_creates_gitignore_with_state_dir_entry(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    gitignore = tmp_path / ".gitignore"
+    assert gitignore.exists()
+    assert ".automaxfix/" in gitignore.read_text(encoding="utf-8").splitlines()
+
+
+def test_cli_init_appends_to_existing_gitignore_without_duplicating(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    gitignore = tmp_path / ".gitignore"
+    gitignore.write_text("__pycache__/\n", encoding="utf-8")
+
+    assert main(["init"]) == 0
+    lines = gitignore.read_text(encoding="utf-8").splitlines()
+    assert lines == ["__pycache__/", ".automaxfix/"]
+
+    assert main(["init"]) == 0
+    lines = gitignore.read_text(encoding="utf-8").splitlines()
+    assert lines.count(".automaxfix/") == 1
+
+
 def test_cli_bug_creates_ticket(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     main(["init"])

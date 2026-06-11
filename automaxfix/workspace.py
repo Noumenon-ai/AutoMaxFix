@@ -11,6 +11,27 @@ class WorkspaceError(RuntimeError):
     """Raised when the current repo cannot safely accept a patch."""
 
 
+_STATE_DIR_NAME = ".automaxfix"
+
+
+def _is_internal_state_line(line: str) -> bool:
+    """Return True when a git status --short line only touches .automaxfix/.
+
+    AutoMaxFix writes its own tickets, logs, and reports under .automaxfix/
+    while preparing a run; those files must not make the user's workspace
+    count as dirty for the pre-apply clean check.
+    """
+    path = line[3:].strip() if len(line) > 3 else ""
+    if not path:
+        return False
+    parts = [part.strip().strip('"') for part in path.split(" -> ")]
+    return all(
+        part == _STATE_DIR_NAME or part.startswith(f"{_STATE_DIR_NAME}/")
+        for part in parts
+        if part
+    )
+
+
 def get_workspace_status(repo_root: Path) -> WorkspaceStatus:
     probe = run_command(["git", "rev-parse", "--show-toplevel"], cwd=repo_root)
     if not probe.passed:
@@ -18,7 +39,11 @@ def get_workspace_status(repo_root: Path) -> WorkspaceStatus:
 
     git_root = Path(probe.stdout.strip()).resolve()
     status = run_command(["git", "status", "--short"], cwd=repo_root)
-    status_lines = [line for line in status.stdout.splitlines() if line.strip()]
+    status_lines = [
+        line
+        for line in status.stdout.splitlines()
+        if line.strip() and not _is_internal_state_line(line)
+    ]
     return WorkspaceStatus(
         repo_root=repo_root,
         git_root=git_root,

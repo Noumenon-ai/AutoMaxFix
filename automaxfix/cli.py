@@ -393,6 +393,24 @@ def _run_strategy_agent_loop(
     return validation, final_patch_text, agent_used, invalid_diff_retries
 
 
+def _ensure_gitignore_entry(base_dir: Path) -> bool:
+    """Make sure .automaxfix/ is gitignored; return True when added."""
+    gitignore_path = base_dir / ".gitignore"
+    entry = ".automaxfix/"
+    if gitignore_path.exists():
+        existing = gitignore_path.read_text(encoding="utf-8")
+        for line in existing.splitlines():
+            if line.strip() in {".automaxfix", ".automaxfix/"}:
+                return False
+        separator = "" if not existing or existing.endswith("\n") else "\n"
+        gitignore_path.write_text(
+            f"{existing}{separator}{entry}\n", encoding="utf-8"
+        )
+        return True
+    gitignore_path.write_text(f"{entry}\n", encoding="utf-8")
+    return True
+
+
 def _init_command(base_dir: Path, *, force: bool) -> int:
     automaxfix_dir = ensure_directory(base_dir / ".automaxfix")
     ensure_directory(automaxfix_dir / "tickets")
@@ -401,6 +419,8 @@ def _init_command(base_dir: Path, *, force: bool) -> int:
     config_path = automaxfix_dir / "config.yml"
     if force or not config_path.exists():
         write_default_config(config_path)
+    if _ensure_gitignore_entry(base_dir):
+        print(f"Added .automaxfix/ to {base_dir / '.gitignore'}")
     print(f"AutoMaxFix initialized at {automaxfix_dir}")
     print(f"Config: {config_path}")
     return 0
