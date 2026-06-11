@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from .checks import CheckDefinition, run_check
 from .models import CommandResult, Config, Ticket
 from .utils import run_command, tail_text
 
@@ -59,6 +60,9 @@ def monitor_once(
     )
     results: list[MonitorResult] = []
     for ticket in find_monitorable(tickets):
+        if ticket.check_definition is not None:
+            results.append(_monitor_check_ticket(ticket, repo_root))
+            continue
         result = _run_verification(
             ticket.verification_command or "",
             repo_root,
@@ -73,6 +77,35 @@ def monitor_once(
             )
         )
     return results
+
+
+def _monitor_check_ticket(ticket: Ticket, repo_root: Path) -> MonitorResult:
+    """Re-apply full check semantics for check-sourced tickets.
+
+    Exit code alone loses the pattern semantics of matches/not_matches
+    checks (for example `cat app.log` exits 0 even when the log still
+    contains ERROR), so the original CheckDefinition is re-run instead.
+    """
+    try:
+        check = CheckDefinition.from_dict(ticket.check_definition or {})
+    except (TypeError, ValueError) as exc:
+        return MonitorResult(
+            ticket_id=ticket.id,
+            regressed=True,
+            returncode=-1,
+            output_excerpt=f"Ticket check_definition is invalid: {exc}",
+        )
+    outcome = run_check(check, repo_root)
+    excerpt = _build_output_excerpt(outcome.command_result)
+    if outcome.failure is not None:
+        summary = f"Check {check.name!r} failed: {outcome.failure.error_summary}"
+        excerpt = f"{summary}\n{excerpt}" if excerpt else summary
+    return MonitorResult(
+        ticket_id=ticket.id,
+        regressed=outcome.failure is not None,
+        returncode=outcome.command_result.returncode,
+        output_excerpt=excerpt,
+    )
 
 
 def _parse_created_at(value: str) -> datetime | None:

@@ -143,6 +143,49 @@ def test_monitor_once_uses_sanitized_minimal_env(
     assert results[0].returncode == 0
 
 
+def _check_ticket(*, log_text: str, tmp_path: Path) -> Ticket:
+    (tmp_path / "app.log").write_text(log_text, encoding="utf-8")
+    ticket = _passed_ticket(verification_command="cat app.log")
+    ticket.source = "check"
+    ticket.check_definition = {
+        "name": "error appeared in log",
+        "command": "cat app.log",
+        "expect": "matches",
+        "pattern": "ERROR",
+    }
+    return ticket
+
+
+def test_monitor_once_reapplies_check_pattern_semantics_not_just_exit_code(
+    tmp_path: Path,
+) -> None:
+    # Audit scenario: the check command exits 0 (cat succeeds) but the log
+    # still contains the failure pattern. Exit-code-only monitoring would
+    # report "Regressed: 0"; full check semantics must report a regression.
+    ticket = _check_ticket(log_text="started\nERROR boom\n", tmp_path=tmp_path)
+
+    results = monitor_once([ticket], tmp_path)
+
+    assert len(results) == 1
+    result = results[0]
+    assert result.regressed is True
+    assert result.returncode == 0
+    assert "ERROR" in result.output_excerpt
+    assert "error appeared in log" in result.output_excerpt
+
+
+def test_monitor_once_check_ticket_not_regressed_when_pattern_absent(
+    tmp_path: Path,
+) -> None:
+    ticket = _check_ticket(log_text="started cleanly\n", tmp_path=tmp_path)
+
+    results = monitor_once([ticket], tmp_path)
+
+    assert len(results) == 1
+    assert results[0].regressed is False
+    assert results[0].returncode == 0
+
+
 def test_ticket_regressed_from_round_trips_through_to_dict_and_from_dict() -> None:
     ticket = Ticket(
         id="AMF-20260602-010",
