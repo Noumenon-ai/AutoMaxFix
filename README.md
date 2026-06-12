@@ -37,6 +37,13 @@ See [ROADMAP.md](ROADMAP.md) for the longer-term loop and where the project is h
 Python 3.11+.
 
 ```
+pip install automaxfix
+automaxfix --help
+```
+
+Or from source:
+
+```
 python3 -m venv .venv
 .venv/bin/pip install -e .
 .venv/bin/automaxfix --help
