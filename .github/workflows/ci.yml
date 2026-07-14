@@ -56,7 +56,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: trufflehog
-        uses: trufflesecurity/trufflehog@v3.81.10
+        uses: trufflesecurity/trufflehog@v3.95.5
         with:
           path: ./
           base: HEAD~1
